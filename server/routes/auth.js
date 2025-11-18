@@ -1,79 +1,131 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { db } from "../db.js";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
+import User from "../models/User.js";
+import Student from "../models/Student.js";
+import Connection from "../models/Connection.js";
+
 dotenv.config();
 
 const router = express.Router();
+const { Types } = mongoose;
 
+const ensureJwtSecrets = () => {
+  if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+    throw new Error(
+      "JWT_SECRET and JWT_REFRESH_SECRET must be defined in the environment"
+    );
+  }
+};
+
+const sanitizeUser = (userDoc) => ({
+  id: userDoc._id.toString(),
+  name: userDoc.name,
+  email: userDoc.email,
+  portfolio_link: userDoc.portfolio_link || "",
+  linkedin_link: userDoc.linkedin_link || "",
+  github_link: userDoc.github_link || "",
+  leetcode_link: userDoc.leetcode_link || "",
+  bio: userDoc.bio || "",
+  profile_photo: userDoc.profile_photo || null,
+});
 
 function extractYearFromEmail(email) {
   if (!email) return null;
-  
+
   const fourDigitMatch = email.match(/(20\d{2})/);
   if (fourDigitMatch) {
     return fourDigitMatch[1];
   }
-  
+
   const twoDigitMatch = email.match(/(\d{2})(?![0-9])/);
   if (twoDigitMatch) {
-    const twoDigit = parseInt(twoDigitMatch[1]);
+    const twoDigit = parseInt(twoDigitMatch[1], 10);
     if (twoDigit >= 0 && twoDigit <= 99) {
-      return `20${twoDigit.toString().padStart(2, '0')}`;
+      return `20${twoDigit.toString().padStart(2, "0")}`;
     }
   }
-  
+
   return null;
 }
 
+const getStudentMeta = async (email) => {
+  try {
+    const student = await Student.findOne({ email }).lean();
+    if (!student) {
+      return { department: "Not available", year: "Not available" };
+    }
+    return {
+      department: student.department || "Not available",
+      year: student.year || "Not available",
+    };
+  } catch (error) {
+    console.warn("⚠️ Could not fetch student data:", error?.message);
+    return { department: "Not available", year: "Not available" };
+  }
+};
+
+const getConnectionsCount = async (userId) => {
+  try {
+    return await Connection.countDocuments({
+      $or: [{ user_id: userId }, { connected_user_id: userId }],
+    });
+  } catch (error) {
+    console.warn(
+      "⚠️ Could not fetch connections count:",
+      error?.message || error
+    );
+    return 0;
+  }
+};
+
+const isValidObjectId = (id) => Types.ObjectId.isValid(id);
+
 router.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
-  console.log("🟢 Received signup request:", req.body);
+  console.log("🟢 Received signup request:", email);
 
-  if (!email || !email.includes("rishihood.edu.in")) {
-    return res.status(403).json({ error: "Only college email IDs are allowed" });
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "Name, email and password required" });
   }
 
-  db.query("SELECT * FROM users WHERE email = ?", [email], async (errUser, existing) => {
-    if (errUser) {
-      console.error("❌ Database error (user check):", errUser);
-      return res.status(500).json({ error: "Database error" });
+  if (!email.includes("rishihood.edu.in")) {
+    return res
+      .status(403)
+      .json({ error: "Only college email IDs are allowed" });
+  }
+
+  try {
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res
+        .status(409)
+        .json({ error: "User already registered. Please login instead." });
     }
 
-    if (existing.length > 0) {
-      return res.status(409).json({ error: "User already registered. Please login instead." });
+    const student = await Student.findOne({ email });
+    if (!student) {
+      return res.status(403).json({
+        error: "Access denied. Not a registered Rishihood student.",
+      });
     }
 
-    db.query("SELECT * FROM student_master WHERE email = ?", [email], async (err, result) => {
-      if (err) {
-        console.error("❌ Database error (student check):", err);
-        return res.status(500).json({ error: "Database error" });
-      }
+    const hashed = await bcrypt.hash(password, 10);
+    await User.create({ name, email, password: hashed });
 
-      if (result.length === 0) {
-        return res.status(403).json({ error: "Access denied. Not a registered Rishihood student." });
-      }
-
-      const hashed = await bcrypt.hash(password, 10);
-
-      db.query(
-        "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-        [name, email, hashed],
-        (err2) => {
-          if (err2) {
-            console.error("❌ Insert error:", err2.message);
-            return res.status(500).json({ error: err2.message });
-          }
-          res.json({ message: "Signup successful 🎉" });
-        }
-      );
-    });
-  });
+    res.json({ message: "Signup successful 🎉" });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "Email already registered" });
+    }
+    console.error("❌ Signup failed:", error?.message || error);
+    res.status(500).json({ error: "Failed to sign up" });
+  }
 });
 
-
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   console.log("🔵 Login attempt for:", email);
@@ -82,302 +134,208 @@ router.post("/login", (req, res) => {
     return res.status(400).json({ error: "Email and password are required" });
   }
 
-  db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
-    if (err) {
-      console.error("❌ Database error (login):", err.message);
-      return res.status(500).json({ error: "Database error" });
-    }
-    
-    if (results.length === 0) {
+  try {
+    ensureJwtSecrets();
+
+    const user = await User.findOne({ email })
+      .select("+password +refresh_token")
+      .exec();
+
+    if (!user) {
       console.log("⚠️ User not found:", email);
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = results[0];
     const valid = await bcrypt.compare(password, user.password);
-    
     if (!valid) {
       console.log("⚠️ Invalid password for:", email);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
-      console.error("❌ JWT_SECRET or JWT_REFRESH_SECRET not set in environment");
-      return res.status(500).json({ error: "Server configuration error" });
-    }
+    const payload = { id: user._id.toString(), email: user.email };
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "15m",
+    });
+    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
+      expiresIn: "7d",
+    });
 
-    const accessToken = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "15m" }
-    );
-
-    const refreshToken = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    db.query(
-      "UPDATE users SET refresh_token = ? WHERE id = ?",
-      [refreshToken, user.id],
-      (updateErr) => {
-        if (updateErr) {
-          console.error("❌ Failed to store refresh token:", updateErr.message);
-          return res.status(500).json({ error: "Database error" });
-        }
+    user.refresh_token = refreshToken;
+    await user.save();
 
     console.log("✅ Login successful for:", email);
 
-        res
-          .cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
-          })
-          .json({
-            message: "Login successful",
-            accessToken,
-          });
-      }
-    );
-  });
+    res
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+      .json({
+        message: "Login successful",
+        accessToken,
+      });
+  } catch (error) {
+    console.error("❌ Login failed:", error?.message || error);
+    res.status(500).json({ error: "Failed to login" });
+  }
 });
 
-
-router.post("/refresh", (req, res) => {
+router.post("/refresh", async (req, res) => {
   const { refreshToken } = req.cookies || {};
 
   if (!refreshToken) {
     return res.status(401).json({ error: "No refresh token provided" });
   }
 
-  if (!process.env.JWT_REFRESH_SECRET) {
-    console.error("❌ JWT_REFRESH_SECRET not set in environment");
-    return res.status(500).json({ error: "Server configuration error" });
-  }
+  try {
+    ensureJwtSecrets();
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-  // Verify the refresh token
-  jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ Refresh token verification failed:", err?.message);
-      return res.status(403).json({ error: "Invalid refresh token" });
-    }
-
-    // Ensure the token is the latest stored for this user
-    db.query(
-      "SELECT * FROM users WHERE id = ? AND refresh_token = ?",
-      [decoded.id, refreshToken],
-      (dbErr, results) => {
-        if (dbErr) {
-          console.error("❌ Database error (refresh):", dbErr?.message);
-          return res.status(500).json({ error: "Database error" });
-        }
-
-        if (results.length === 0) {
-          return res.status(403).json({ error: "Refresh token not recognized" });
-        }
-
-        // Issue a new short-lived access token
-        const accessToken = jwt.sign(
-          { id: decoded.id, email: decoded.email },
-          process.env.JWT_SECRET,
-          { expiresIn: "15m" }
-        );
-
-        res.json({ accessToken });
-      }
-    );
-  });
-});
-
-/* ================================
-   🔹 LOGOUT ROUTE
-   - Clears refresh token cookie and DB entry
-================================ */
-router.post("/logout", (req, res) => {
-  const { refreshToken } = req.cookies || {};
-
-  if (!refreshToken) {
-    // Even if no cookie, respond success to simplify frontend
-    return res
-      .clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      })
-      .json({ message: "Logged out" });
-  }
-
-  jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-    if (err) {
-      // Clear cookie even if token invalid/expired
+    // If the token came from the old SQL-based system, its id will not be
+    // a valid Mongo ObjectId – treat it as invalid and clear the cookie.
+    if (!isValidObjectId(decoded.id)) {
       return res
         .clearCookie("refreshToken", {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
         })
-        .json({ message: "Logged out" });
+        .status(403)
+        .json({ error: "Invalid refresh token" });
     }
 
-    // Remove refresh token from DB
-    db.query(
-      "UPDATE users SET refresh_token = NULL WHERE id = ?",
-      [decoded.id],
-      (dbErr) => {
-        if (dbErr) {
-          console.error("❌ Database error (logout):", dbErr?.message);
-          // Still clear cookie so client is logged out from browser perspective
-        }
+    const user = await User.findOne({
+      _id: decoded.id,
+      refresh_token: refreshToken,
+    }).select("+refresh_token");
 
-        res
-          .clearCookie("refreshToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-          })
-          .json({ message: "Logged out" });
-      }
+    if (!user) {
+      return res.status(403).json({ error: "Refresh token not recognized" });
+    }
+
+    const accessToken = jwt.sign(
+      { id: user._id.toString(), email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
     );
-  });
-});
 
-/* ================================
-   🔹 DELETE ACCOUNT (DELETE /delete-account)
-   - Deletes the current user's account
-   - Requires Authorization: Bearer <accessToken>
-================================ */
-router.delete("/delete-account", (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ error: "No token provided" });
-  }
+    res.json({ accessToken });
+  } catch (error) {
+    console.error("❌ Refresh token flow failed:", error?.message || error);
+    const isJwtError =
+      error.name === "JsonWebTokenError" || error.name === "TokenExpiredError";
 
-  const token = authHeader.split(" ")[1];
-
-  if (!process.env.JWT_SECRET) {
-    console.error("❌ JWT_SECRET not set in environment");
-    return res.status(500).json({ error: "Server configuration error" });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ JWT verify failed (delete-account):", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
-    }
-
-    const userId = decoded.id;
-
-    // Delete the user; foreign keys with ON DELETE CASCADE will clean related rows
-    db.query("DELETE FROM users WHERE id = ?", [userId], (dbErr) => {
-      if (dbErr) {
-        console.error("❌ Database error (delete-account):", dbErr?.message);
-        return res.status(500).json({ error: "Database error" });
-      }
-
-      // Clear refresh token cookie as well
-      res
+    if (isJwtError) {
+      return res
         .clearCookie("refreshToken", {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
         })
-        .json({ message: "Account deleted successfully" });
-    });
-  });
+        .status(403)
+        .json({ error: "Invalid refresh token" });
+    }
+
+    res.status(500).json({ error: "Failed to refresh token" });
+  }
 });
 
-/* ================================
-   🔹 GET USER DETAILS (/me)
-================================ */
-router.get("/me", (req, res) => {
+router.post("/logout", async (req, res) => {
+  const { refreshToken } = req.cookies || {};
+
+  if (refreshToken && process.env.JWT_REFRESH_SECRET) {
+    try {
+      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      await User.findByIdAndUpdate(decoded.id, {
+        $unset: { refresh_token: "" },
+      }).exec();
+    } catch (error) {
+      console.warn("⚠️ Logout token cleanup skipped:", error?.message || error);
+    }
+  }
+
+  res
+    .clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    })
+    .json({ message: "Logged out" });
+});
+
+router.delete("/delete-account", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
+  try {
+    ensureJwtSecrets();
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    await Connection.deleteMany({
+      $or: [{ user_id: userId }, { connected_user_id: userId }],
+    });
+    await User.findByIdAndDelete(userId);
+
+    res
+      .clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      })
+      .json({ message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("❌ Delete account failed:", error?.message || error);
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
+});
+
+router.get("/me", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
-  const token = authHeader.split(" ")[1];
+  try {
+    ensureJwtSecrets();
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ JWT verify failed:", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
+    const user = await User.findById(decoded.id).lean();
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // ✅ Fetch basic user data - try with profile fields first, fallback to basic if columns don't exist
-    db.query("SELECT * FROM users WHERE id = ?", [decoded.id], (err1, userResults) => {
-      if (err1) {
-        console.error("❌ Database error (/me users):", err1?.message);
-        return res.status(500).json({ error: "Database error" });
-      }
+    const studentMeta = await getStudentMeta(user.email);
+    let year = studentMeta.year;
+    if (!year || year === "Not available") {
+      year = extractYearFromEmail(user.email) || "Not available";
+    }
 
-      if (userResults.length === 0)
-        return res.status(404).json({ error: "User not found" });
+    const connectionsCount = await getConnectionsCount(user._id);
 
-      const user = userResults[0];
-
-      // ✅ Fetch extra student data (handle errors gracefully)
-      db.query(
-        "SELECT department, year FROM student_master WHERE email = ?",
-        [user.email],
-        (err2, studentResults) => {
-          // If student_master table doesn't exist or query fails, use defaults
-          let student = { department: "Not available", year: "Not available" };
-          
-          if (!err2 && studentResults.length > 0) {
-            student = studentResults[0];
-          } else if (err2) {
-            console.warn("⚠️ Could not fetch student data (table may not exist):", err2?.message);
-          }
-
-          // ✅ Get connections count (handle if table doesn't exist)
-          db.query(
-            "SELECT COUNT(*) as count FROM connections WHERE user_id = ? OR connected_user_id = ?",
-            [decoded.id, decoded.id],
-            (err3, connResults) => {
-              // If connections table doesn't exist, just use 0
-              const connectionsCount = err3 ? 0 : (connResults[0]?.count || 0);
-              
-              if (err3) {
-                console.warn("⚠️ Could not fetch connections count (table may not exist):", err3?.message);
-              }
-
-              // ✅ Extract year from email if batch is empty
-              let year = student.year || null;
-              if (!year || year === "Not available" || year === null) {
-                const extractedYear = extractYearFromEmail(user.email);
-                year = extractedYear || "Not available";
-              }
-
-              // ✅ Send merged response with safe access to optional fields
-              res.json({
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                department: student.department || "Not available",
-                year: year,
-                portfolio_link: user.portfolio_link || "",
-                linkedin_link: user.linkedin_link || "",
-                github_link: user.github_link || "",
-                leetcode_link: user.leetcode_link || "",
-                bio: user.bio || "",
-                profile_photo: user.profile_photo || null,
-                connections_count: connectionsCount,
-              });
-            }
-          );
-        }
-      );
+    res.json({
+      ...sanitizeUser(user),
+      department: studentMeta.department,
+      year,
+      connections_count: connectionsCount,
     });
-  });
+  } catch (error) {
+    console.error("❌ /me failed:", error?.message || error);
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
 });
- 
-/* ================================
-   🔹 SEARCH USERS (/search?query=...)
-  - Searches users by name or email
-  - Requires Authorization: Bearer <token>
-================================ */
-router.get("/search", (req, res) => {
+
+router.get("/search", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
@@ -388,323 +346,202 @@ router.get("/search", (req, res) => {
     return res.json({ results: [] });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err) => {
-    if (err) {
-      console.error("❌ JWT verify failed (search):", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
-    }
+  try {
+    ensureJwtSecrets();
+    jwt.verify(token, process.env.JWT_SECRET);
 
-    const like = `%${query}%`;
-    db.query(
-      "SELECT id, name, email FROM users WHERE name LIKE ? OR email LIKE ? ORDER BY name ASC LIMIT 10",
-      [like, like],
-      (err2, results) => {
-        if (err2) {
-          console.error("❌ Database error (/search):", err2?.message);
-          return res.status(500).json({ error: "Database error" });
-        }
-        res.json({ results });
-      }
-    );
-  });
+    const regex = new RegExp(query.trim(), "i");
+    const results = await User.find({
+      $or: [{ name: regex }, { email: regex }],
+    })
+      .limit(10)
+      .sort({ name: 1 })
+      .select("name email")
+      .lean();
+
+    res.json({
+      results: results.map((user) => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+      })),
+    });
+  } catch (error) {
+    console.error("❌ Search failed:", error?.message || error);
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
 });
 
-/* ================================
-   🔹 GET USER PROFILE (/profile/:userId)
-  - Gets full profile of any user
-  - Requires Authorization: Bearer <token>
-================================ */
-router.get("/profile/:userId", (req, res) => {
+router.get("/profile/:userId", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
   const token = authHeader.split(" ")[1];
   const { userId } = req.params;
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ JWT verify failed (profile):", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
+  if (!isValidObjectId(userId)) {
+    return res.status(400).json({ error: "Invalid user id" });
+  }
+
+  try {
+    ensureJwtSecrets();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // Fetch user profile - use SELECT * to handle missing columns gracefully
-    db.query("SELECT * FROM users WHERE id = ?", [userId], (err1, userResults) => {
-      if (err1) {
-        console.error("❌ Database error (profile):", err1?.message);
-        return res.status(500).json({ error: "Database error" });
-      }
+    const studentMeta = await getStudentMeta(user.email);
+    let year = studentMeta.year;
+    if (!year || year === "Not available") {
+      year = extractYearFromEmail(user.email) || "Not available";
+    }
 
-      if (userResults.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
+    const [connectionsCount, isConnected] = await Promise.all([
+      getConnectionsCount(user._id),
+      Connection.exists({
+        $or: [
+          { user_id: decoded.id, connected_user_id: userId },
+          { user_id: userId, connected_user_id: decoded.id },
+        ],
+      }),
+    ]);
 
-      const user = userResults[0];
-
-      // Fetch student data (handle errors gracefully)
-      db.query(
-        "SELECT department, year FROM student_master WHERE email = ?",
-        [user.email],
-        (err2, studentResults) => {
-          // If student_master table doesn't exist or query fails, use defaults
-          let student = { department: "Not available", year: "Not available" };
-          
-          if (!err2 && studentResults.length > 0) {
-            student = studentResults[0];
-          } else if (err2) {
-            console.warn("⚠️ Could not fetch student data (profile):", err2?.message);
-          }
-
-          // Get connections count (handle if table doesn't exist)
-          db.query(
-            "SELECT COUNT(*) as count FROM connections WHERE user_id = ? OR connected_user_id = ?",
-            [userId, userId],
-            (err3, connResults) => {
-              const connectionsCount = err3 ? 0 : (connResults[0]?.count || 0);
-              
-              if (err3) {
-                console.warn("⚠️ Could not fetch connections count (profile):", err3?.message);
-              }
-
-              // Check if current user is connected to this user
-              db.query(
-                "SELECT * FROM connections WHERE (user_id = ? AND connected_user_id = ?) OR (user_id = ? AND connected_user_id = ?)",
-                [decoded.id, userId, userId, decoded.id],
-                (err4, isConnectedResults) => {
-                  if (err4) {
-                    console.warn("⚠️ Could not check connection status:", err4?.message);
-                  }
-
-                  // ✅ Extract year from email if batch is empty
-                  let year = student.year || null;
-                  if (!year || year === "Not available" || year === null) {
-                    const extractedYear = extractYearFromEmail(user.email);
-                    year = extractedYear || "Not available";
-                  }
-
-                  res.json({
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    department: student.department || "Not available",
-                    year: year,
-                    portfolio_link: user.portfolio_link || "",
-                    linkedin_link: user.linkedin_link || "",
-                    github_link: user.github_link || "",
-                    leetcode_link: user.leetcode_link || "",
-                    bio: user.bio || "",
-                    profile_photo: user.profile_photo || null,
-                    connections_count: connectionsCount,
-                    is_connected: err4 ? false : (isConnectedResults.length > 0),
-                    is_own_profile: decoded.id === parseInt(userId),
-                  });
-                }
-              );
-            }
-          );
-        }
-      );
+    res.json({
+      ...sanitizeUser(user),
+      department: studentMeta.department,
+      year,
+      connections_count: connectionsCount,
+      is_connected: Boolean(isConnected),
+      is_own_profile: decoded.id === user._id.toString(),
     });
-  });
+  } catch (error) {
+    console.error("❌ Get profile failed:", error?.message || error);
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
 });
 
-/* ================================
-   🔹 UPDATE USER PROFILE (PUT /profile)
-  - Updates current user's profile
-  - Requires Authorization: Bearer <token>
-================================ */
-router.put("/profile", (req, res) => {
+router.put("/profile", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
   const token = authHeader.split(" ")[1];
-  const { name, portfolio_link, linkedin_link, github_link, leetcode_link, bio, profile_photo } = req.body;
+  const updates = req.body || {};
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ JWT verify failed (update profile):", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
-    }
+  const allowedFields = [
+    "name",
+    "portfolio_link",
+    "linkedin_link",
+    "github_link",
+    "leetcode_link",
+    "bio",
+    "profile_photo",
+  ];
 
-    // Build update query dynamically based on what's provided
-    const updates = [];
-    const values = [];
+  const payload = Object.entries(updates)
+    .filter(([key]) => allowedFields.includes(key))
+    .reduce((acc, [key, value]) => {
+      acc[key] = value ?? null;
+      return acc;
+    }, {});
 
-    if (name !== undefined) {
-      updates.push("name = ?");
-      values.push(name);
-    }
-    if (portfolio_link !== undefined) {
-      updates.push("portfolio_link = ?");
-      values.push(portfolio_link || null);
-    }
-    if (linkedin_link !== undefined) {
-      updates.push("linkedin_link = ?");
-      values.push(linkedin_link || null);
-    }
-    if (github_link !== undefined) {
-      updates.push("github_link = ?");
-      values.push(github_link || null);
-    }
-    if (leetcode_link !== undefined) {
-      updates.push("leetcode_link = ?");
-      values.push(leetcode_link || null);
-    }
-    if (bio !== undefined) {
-      updates.push("bio = ?");
-      values.push(bio || null);
-    }
-    if (profile_photo !== undefined) {
-      updates.push("profile_photo = ?");
-      values.push(profile_photo || null);
-    }
+  if (Object.keys(payload).length === 0) {
+    return res.status(400).json({ error: "No fields to update" });
+  }
 
-    if (updates.length === 0) {
-      return res.status(400).json({ error: "No fields to update" });
-    }
+  try {
+    ensureJwtSecrets();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    values.push(decoded.id);
+    await User.findByIdAndUpdate(decoded.id, payload).exec();
 
-    const query = `UPDATE users SET ${updates.join(", ")} WHERE id = ?`;
-
-    db.query(query, values, (err1) => {
-      if (err1) {
-        console.error("❌ Database error (update profile):", err1?.message);
-        // If profile_photo column doesn't exist, try updating without it
-        if (err1.message.includes("Unknown column") && err1.message.includes("profile_photo")) {
-          console.warn("⚠️ profile_photo column doesn't exist, updating without it");
-          // Remove profile_photo from updates and try again
-          const updatesWithoutPhoto = updates.filter(u => !u.includes("profile_photo"));
-          const valuesWithoutPhoto = values.filter((v, i) => !updates[i].includes("profile_photo"));
-          
-          if (updatesWithoutPhoto.length === 0) {
-            return res.status(500).json({ 
-              error: "Profile photo column not available. Please run: ALTER TABLE users ADD COLUMN profile_photo TEXT DEFAULT NULL;" 
-            });
-          }
-          
-          valuesWithoutPhoto.push(decoded.id);
-          const queryWithoutPhoto = `UPDATE users SET ${updatesWithoutPhoto.join(", ")} WHERE id = ?`;
-          
-          db.query(queryWithoutPhoto, valuesWithoutPhoto, (err2) => {
-            if (err2) {
-              console.error("❌ Database error (update profile without photo):", err2?.message);
-              return res.status(500).json({ error: "Database error" });
-            }
-            res.json({ 
-              message: "Profile updated successfully (profile photo column not available - please run migration)" 
-            });
-          });
-          return;
-        }
-        // If other columns don't exist, provide helpful error message
-        if (err1.message.includes("Unknown column")) {
-          return res.status(500).json({ 
-            error: "Profile fields not available. Please run the database migration first." 
-          });
-        }
-        return res.status(500).json({ error: "Database error" });
-      }
-      res.json({ message: "Profile updated successfully" });
-    });
-  });
+    res.json({ message: "Profile updated successfully" });
+  } catch (error) {
+    console.error("❌ Update profile failed:", error?.message || error);
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
 });
 
-/* ================================
-   🔹 CONNECT TO USER (POST /connect/:userId)
-  - Creates a connection between current user and target user
-  - Requires Authorization: Bearer <token>
-================================ */
-router.post("/connect/:userId", (req, res) => {
+router.post("/connect/:userId", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
   const token = authHeader.split(" ")[1];
   const { userId } = req.params;
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ JWT verify failed (connect):", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
-    }
+  if (!isValidObjectId(userId)) {
+    return res.status(400).json({ error: "Invalid user id" });
+  }
 
-    if (decoded.id === parseInt(userId)) {
+  try {
+    ensureJwtSecrets();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.id === userId) {
       return res.status(400).json({ error: "Cannot connect to yourself" });
     }
 
-    // Check if connection already exists
-    db.query(
-      "SELECT * FROM connections WHERE (user_id = ? AND connected_user_id = ?) OR (user_id = ? AND connected_user_id = ?)",
-      [decoded.id, userId, userId, decoded.id],
-      (err1, existing) => {
-        if (err1) {
-          // If connections table doesn't exist, provide helpful message
-          if (err1.message.includes("doesn't exist")) {
-            console.warn("⚠️ Connections table doesn't exist");
-            return res.status(500).json({ 
-              error: "Connections feature not available. Please run the database migration first." 
-            });
-          }
-          console.error("❌ Database error (check connection):", err1?.message);
-          return res.status(500).json({ error: "Database error" });
-        }
+    const sortedIds = [decoded.id, userId]
+      .map((id) => id.toString())
+      .sort((a, b) => a.localeCompare(b));
 
-        if (existing.length > 0) {
-          return res.status(409).json({ error: "Already connected" });
-        }
+    const [primary, secondary] = sortedIds.map((id) => new Types.ObjectId(id));
 
-        // Create connection
-        db.query(
-          "INSERT INTO connections (user_id, connected_user_id) VALUES (?, ?)",
-          [decoded.id, userId],
-          (err2) => {
-            if (err2) {
-              // If connections table doesn't exist, provide helpful message
-              if (err2.message.includes("doesn't exist")) {
-                console.warn("⚠️ Connections table doesn't exist");
-                return res.status(500).json({ 
-                  error: "Connections feature not available. Please run the database migration first." 
-                });
-              }
-              console.error("❌ Database error (create connection):", err2?.message);
-              return res.status(500).json({ error: "Database error" });
-            }
-            res.json({ message: "Connected successfully" });
-          }
-        );
-      }
-    );
-  });
+    const existing = await Connection.findOne({
+      user_id: primary,
+      connected_user_id: secondary,
+    }).lean();
+
+    if (existing) {
+      return res.status(409).json({ error: "Already connected" });
+    }
+
+    await Connection.create({
+      user_id: primary,
+      connected_user_id: secondary,
+    });
+
+    res.json({ message: "Connected successfully" });
+  } catch (error) {
+    console.error("❌ Connect failed:", error?.message || error);
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
 });
 
-/* ================================
-   🔹 GET CONNECTIONS COUNT (GET /connections/count)
-  - Gets current user's connections count
-  - Requires Authorization: Bearer <token>
-================================ */
-router.get("/connections/count", (req, res) => {
+router.get("/connections/count", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
   const token = authHeader.split(" ")[1];
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("❌ JWT verify failed (connections count):", err?.message);
-      return res.status(403).json({ error: "Invalid token" });
-    }
-
-    db.query(
-      "SELECT COUNT(*) as count FROM connections WHERE user_id = ? OR connected_user_id = ?",
-      [decoded.id, decoded.id],
-      (err1, results) => {
-        if (err1) {
-          console.error("❌ Database error (connections count):", err1?.message);
-          return res.status(500).json({ error: "Database error" });
-        }
-        res.json({ count: results[0]?.count || 0 });
-      }
+  try {
+    ensureJwtSecrets();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const count = await getConnectionsCount(decoded.id);
+    res.json({ count });
+  } catch (error) {
+    console.error(
+      "❌ Connections count failed:",
+      error?.message || error,
     );
-  });
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
 });
 
 export default router;

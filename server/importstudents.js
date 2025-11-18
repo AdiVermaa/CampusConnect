@@ -1,83 +1,90 @@
 import fs from "fs";
-import mysql from "mysql2";
+import path from "path";
 import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { connectDB, disconnectDB } from "./db.js";
+import Student from "./models/Student.js";
+
 dotenv.config();
 
-// 🔹 Connect to MySQL
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Database connection failed:", err.message);
-    process.exit(1);
-  } else {
-    console.log("✅ Connected to MySQL Database");
-  }
-});
+const dataPath = path.resolve(__dirname, "../student_data.json");
+const data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
 
-// 🔹 Read student data JSON
-const data = JSON.parse(fs.readFileSync("../student_data.json", "utf-8"));
-
-// 🔹 Track results
-let insertedCount = 0;
-let skippedCount = 0;
-
-// 🔹 Insert data into student_master table
-data.forEach((student) => {
-  let department = student.course || "";
-
-  // 🧠 Clean up department names
+const normalizeDepartment = (department = "") => {
   const deptLower = department.toLowerCase();
 
   if (deptLower.includes("computer science and artificial intelligence")) {
-    department = "B.Tech CS & AI";
-  } else if (deptLower.includes("computer science and data science")) {
-    department = "B.Tech CS & DS";
-  } else if (deptLower.includes("design")) {
-    department = "B.Des";
-  } else if (deptLower.includes("entrepreneurship")) {
-    department = "BBA Entrepreneurship";
-  } else if (deptLower.includes("psychology")) {
-    department = "BA Psychology";
+    return "B.Tech CS & AI";
+  }
+  if (deptLower.includes("computer science and data science")) {
+    return "B.Tech CS & DS";
+  }
+  if (deptLower.includes("design")) {
+    return "B.Des";
+  }
+  if (deptLower.includes("entrepreneurship")) {
+    return "BBA Entrepreneurship";
+  }
+  if (deptLower.includes("psychology")) {
+    return "BA Psychology";
+  }
+  return department.substring(0, 50);
+};
+
+const run = async () => {
+  await connectDB();
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
+
+  for (const student of data) {
+    try {
+      const payload = {
+        student_id: student.enrollmentNo || "",
+        name: student.nameAsPerXth || "",
+        email: (student.ruEmailID || "").toLowerCase(),
+        department: normalizeDepartment(student.course || "Not available"),
+        year: student.batch ? String(student.batch) : "Not available",
+      };
+
+      const result = await Student.updateOne(
+        { email: payload.email },
+        { $set: payload },
+        { upsert: true }
+      );
+
+      if (result.upsertedCount && result.upsertedCount > 0) {
+        insertedCount++;
+      } else if (result.modifiedCount && result.modifiedCount > 0) {
+        updatedCount++;
+      } else {
+        skippedCount++;
+      }
+
+      console.log(`✅ Processed ${payload.email}`);
+    } catch (error) {
+      skippedCount++;
+      console.error(
+        `⚠️ Skipped ${student?.ruEmailID || "unknown"}:`,
+        error?.message || error
+      );
+    }
   }
 
-  // Limit to 50 chars for MySQL column
-  department = department.substring(0, 50);
+  console.log("\n📊 Import Summary:");
+  console.log(`✅ Inserted: ${insertedCount}`);
+  console.log(`🔁 Updated: ${updatedCount}`);
+  console.log(`⚠️ Skipped: ${skippedCount}`);
 
-  const query = `
-    INSERT INTO student_master (student_id, name, email, department, year)
-    VALUES (?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE name = VALUES(name);
-  `;
+  await disconnectDB();
+  process.exit(0);
+};
 
-  const values = [
-    student.enrollmentNo || "",
-    student.nameAsPerXth || "",
-    student.ruEmailID || "",
-    department,
-    parseInt(student.batch) || null,
-  ];
-
-  db.query(query, values, (err) => {
-    if (err) {
-      skippedCount++;
-      console.error(`⚠️ Skipped ${student.ruEmailID}:`, err.message);
-    } else {
-      insertedCount++;
-      console.log(`✅ Inserted/Updated ${student.ruEmailID}`);
-    }
-
-    // When done with all students, show summary
-    if (insertedCount + skippedCount === data.length) {
-      console.log("\n📊 Import Summary:");
-      console.log(`✅ Successfully inserted/updated: ${insertedCount}`);
-      console.log(`⚠️ Skipped due to errors: ${skippedCount}`);
-      db.end();
-    }
-  });
+run().catch((error) => {
+  console.error("❌ Student import failed:", error?.message || error);
+  disconnectDB().finally(() => process.exit(1));
 });

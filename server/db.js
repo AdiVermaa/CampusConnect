@@ -1,18 +1,34 @@
-import mysql from "mysql2";
+import mongoose from "mongoose";
 import dotenv from "dotenv";
+
 dotenv.config();
 
-export const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+let isConnected = false;
 
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Database connection failed:", err);
-  } else {
-    console.log("✅ Connected to MySQL Database");
+export const connectDB = async () => {
+  if (isConnected) {
+    return mongoose.connection;
   }
-});
+
+  if (!process.env.MONGO_URI) {
+    throw new Error("MONGO_URI is not defined in the environment");
+  }
+
+  try {
+    const connection = await mongoose.connect(process.env.MONGO_URI, {
+      autoIndex: true,
+    });
+    isConnected = true;
+    console.log("✅ Connected to MongoDB");
+    return connection;
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error?.message || error);
+    process.exit(1);
+  }
+};
+
+export const disconnectDB = async () => {
+  if (!isConnected) return;
+  await mongoose.disconnect();
+  isConnected = false;
+};

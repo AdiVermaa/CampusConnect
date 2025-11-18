@@ -3,16 +3,25 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
-import { db } from "./db.js";
+import { connectDB } from "./db.js";
 
 
 dotenv.config();
 
 const app = express();
+
+connectDB();
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.CLIENT_ORIGIN, // e.g. Vercel URL in production
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
-    credentials: true, // allow cookies to be sent
+    origin: allowedOrigins,
+    credentials: true,
   })
 );
 app.use(cookieParser());
