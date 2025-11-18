@@ -9,7 +9,6 @@ import { setAccessToken, refresh, getAccessToken } from "./api/auth";
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
 
-  // On first load, try to get an access token using the refresh cookie
   useEffect(() => {
     (async () => {
       try {
@@ -18,7 +17,6 @@ export default function App() {
           setAccessToken(res.data.accessToken);
         }
       } catch {
-        // Ignore errors; user will just be treated as logged out
       }
       setAuthChecked(true);
     })();

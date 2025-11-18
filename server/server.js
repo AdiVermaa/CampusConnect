@@ -12,11 +12,17 @@ const app = express();
 
 connectDB();
 
+const envOriginList =
+  process.env.CLIENT_ORIGINS?.split(",").map((o) => o.trim()) || [];
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  process.env.CLIENT_ORIGIN, // e.g. Vercel URL in production
-].filter(Boolean);
+  process.env.CLIENT_ORIGIN, // single origin env var
+  ...envOriginList,
+]
+  .filter(Boolean)
+  .filter((value, index, self) => self.indexOf(value) === index);
 
 app.use(
   cors({
