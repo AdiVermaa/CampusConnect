@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
+import { setAccessToken } from "../api/auth";
 
 
 export default function Login() {
@@ -16,17 +17,18 @@ export default function Login() {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // send/receive cookies
         body: JSON.stringify(form),
       });
       const data = await res.json();
 
       if (res.ok) {
-        // ✅ Save token & redirect
-        localStorage.setItem("token", data.token);
+        // ✅ Save access token in memory only & redirect
+        setAccessToken(data.accessToken);
         setMessage("Login successful! Redirecting...");
         navigate("/dashboard", { replace: true });
       } else {
-        setMessage(data.error);
+        setMessage(data.error || "Login failed");
       }
     } catch (err) {
       setMessage("Something went wrong. Please try again.");

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
+import { API, getAccessToken, clearAccessToken } from "../api/auth";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -10,19 +11,19 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return navigate("/login");
+    const token = getAccessToken();
+    if (!token) {
+      navigate("/login");
+      return;
+    }
 
     const fetchData = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        setUser(data);
+        const res = await API.get("/me");
+        setUser(res.data);
       } catch (err) {
         console.error(err);
+        clearAccessToken();
         navigate("/login");
       }
     };
@@ -31,7 +32,7 @@ export default function Dashboard() {
 
   // Debounced search
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getAccessToken();
     if (!token) return;
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -40,12 +41,10 @@ export default function Dashboard() {
     setIsSearching(true);
     const handle = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/search?query=${encodeURIComponent(searchQuery)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Search failed");
-        setSearchResults(data.results || []);
+        const res = await API.get(
+          `/search?query=${encodeURIComponent(searchQuery)}`
+        );
+        setSearchResults(res.data.results || []);
       } catch (e) {
         setSearchResults([]);
       } finally {
@@ -56,7 +55,7 @@ export default function Dashboard() {
   }, [searchQuery]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    clearAccessToken();
     navigate("/login");
   };
 
@@ -118,9 +117,13 @@ export default function Dashboard() {
         <div className="w-1/4 bg-white rounded-xl shadow p-5 h-fit sticky top-20">
           <div className="text-center">
             <img
-              src="https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
+              src={
+                user.profile_photo
+                  ? user.profile_photo
+                  : "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
+              }
               alt="Profile"
-              className="w-24 h-24 rounded-full mx-auto border-4 border-red-500 cursor-pointer"
+              className="w-24 h-24 rounded-full mx-auto border-4 border-red-500 cursor-pointer object-cover"
               onClick={() => navigate(`/profile/${user.id}`)}
             />
             <h2
