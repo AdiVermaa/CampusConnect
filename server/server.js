@@ -24,10 +24,36 @@ const allowedOrigins = [
   .filter(Boolean)
   .filter((value, index, self) => self.indexOf(value) === index);
 
+// Log allowed origins in production for debugging
+if (process.env.NODE_ENV === "production") {
+  console.log("🌐 Allowed CORS origins:", allowedOrigins);
+}
+
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Log blocked origins in production for debugging
+      if (process.env.NODE_ENV === "production") {
+        console.warn("⚠️ CORS blocked origin:", origin);
+        console.warn("   Allowed origins:", allowedOrigins);
+      }
+
+      return callback(
+        new Error(`CORS policy: Origin ${origin} is not allowed`)
+      );
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(cookieParser());
