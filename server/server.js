@@ -18,13 +18,14 @@ const envOriginList =
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  process.env.CLIENT_ORIGIN, // single origin env var
+  process.env.CLIENT_ORIGIN, 
   ...envOriginList,
+  "https://campus-connect-six-liard.vercel.app",
 ]
   .filter(Boolean)
+  .map((origin) => origin.replace(/\/$/, ""))
   .filter((value, index, self) => self.indexOf(value) === index);
 
-// Log allowed origins in production for debugging
 if (process.env.NODE_ENV === "production") {
   console.log("🌐 Allowed CORS origins:", allowedOrigins);
 }
@@ -32,18 +33,19 @@ if (process.env.NODE_ENV === "production") {
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, Postman, etc.)
       if (!origin) {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      const normalizedOrigin = origin.replace(/\/$/, "");
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
         return callback(null, true);
       }
 
-      // Log blocked origins in production for debugging
       if (process.env.NODE_ENV === "production") {
         console.warn("⚠️ CORS blocked origin:", origin);
+        console.warn("   Normalized:", normalizedOrigin);
         console.warn("   Allowed origins:", allowedOrigins);
       }
 
@@ -52,16 +54,23 @@ app.use(
       );
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Content-Length", "Content-Type"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 app.use(cookieParser());
-// Increase body size limit to handle base64 image uploads (50MB)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Routes
 app.use("/api/auth", authRoutes);
 
 app.get("/", (req, res) => {
