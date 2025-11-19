@@ -12,6 +12,14 @@ dotenv.config();
 const router = express.Router();
 const { Types } = mongoose;
 
+const isProd = process.env.NODE_ENV === "production";
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
 const ensureJwtSecrets = () => {
   if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
     throw new Error(
@@ -166,12 +174,7 @@ router.post("/login", async (req, res) => {
     console.log("✅ Login successful for:", email);
 
     res
-      .cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      })
+      .cookie("refreshToken", refreshToken, cookieOptions)
       .json({
         message: "Login successful",
         accessToken,
@@ -197,11 +200,7 @@ router.post("/refresh", async (req, res) => {
     // a valid Mongo ObjectId – treat it as invalid and clear the cookie.
     if (!isValidObjectId(decoded.id)) {
       return res
-        .clearCookie("refreshToken", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
-        })
+        .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
         .status(403)
         .json({ error: "Invalid refresh token" });
     }
@@ -228,12 +227,8 @@ router.post("/refresh", async (req, res) => {
       error.name === "JsonWebTokenError" || error.name === "TokenExpiredError";
 
     if (isJwtError) {
-      return res
-        .clearCookie("refreshToken", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
-        })
+    return res
+      .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
         .status(403)
         .json({ error: "Invalid refresh token" });
     }
@@ -257,11 +252,7 @@ router.post("/logout", async (req, res) => {
   }
 
   res
-    .clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    })
+    .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
     .json({ message: "Logged out" });
 });
 
@@ -283,11 +274,7 @@ router.delete("/delete-account", async (req, res) => {
     await User.findByIdAndDelete(userId);
 
     res
-      .clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      })
+      .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
       .json({ message: "Account deleted successfully" });
   } catch (error) {
     console.error("❌ Delete account failed:", error?.message || error);
