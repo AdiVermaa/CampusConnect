@@ -2,8 +2,8 @@
       CampusConnect – A Professional Networking Platform for Rishihood University
 2. Problem Statement
       Students at Rishihood University often struggle to build professional connections within their own campus. Opportunities like internships, projects, collaborations, and event
-       updates are scattered across multiple WhatsApp groups and emails — making networking inefficient and messy. CampusConnect aims to create a centralized platform where students, faculty, and
-    # alumni can:
+       updates are scattered across multiple WhatsApp groups and emails — making networking inefficient and messy. CampusConnect aims to create a centralized platform where students, faculty,and
+    alumni can:
       ● Showcase their profiles and achievements
       ● Post updates and opportunities
       ● Build professional connections within the campus ecosystem
