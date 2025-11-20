@@ -531,4 +531,59 @@ router.get("/connections/count", async (req, res) => {
   }
 });
 
+router.get("/connections/list", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    ensureJwtSecrets();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const connections = await Connection.find({
+      $or: [
+        { user_id: decoded.id },
+        { connected_user_id: decoded.id },
+      ],
+    }).lean();
+
+    const otherUserIds = new Set();
+
+    connections.forEach((conn) => {
+      if (conn.user_id.toString() === decoded.id) {
+        otherUserIds.add(conn.connected_user_id.toString());
+      } else {
+        otherUserIds.add(conn.user_id.toString());
+      }
+    });
+
+    if (otherUserIds.size === 0) {
+      return res.json({ connections: [] });
+    }
+
+    const users = await User.find({
+      _id: { $in: Array.from(otherUserIds) },
+    }).select("name email profile_photo");
+
+    res.json({
+      connections: users.map((user) => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        profile_photo: user.profile_photo || null,
+      })),
+    });
+  } catch (error) {
+    console.error(
+      "❌ Connections list failed:",
+      error?.message || error,
+    );
+    const status = error.name === "JsonWebTokenError" ? 403 : 500;
+    res
+      .status(status)
+      .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
+});
+
 export default router;
