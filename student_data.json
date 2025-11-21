@@ -18,6 +18,24 @@
       "school_batch": null
     },
     {
+      "enrollmentNo": "0000001",
+      "user_progile_img": null,
+      "nameAsPerXth": "Saina (Goldfish)",
+      "applicationNumber": null,
+      "firstName": "Goldfish ",
+      "lastName": null,
+      "ruEmailID": "Saina.goldfish2024@nst.rishihood.edu.in",
+      "course": "B.Tech - Computer Science ",
+      "batch": "2024",
+      "dateOfBirth": "28-10-2005",
+      "gender": "Female",
+      "bloodGroup": "A+",
+      "religion": "Hindu ",
+      "socialCategory": "General ",
+      "rufp_batch": null,
+      "school_batch": null
+    },
+    {
       "enrollmentNo": "2401010122",
       "user_progile_img": null,
       "nameAsPerXth": "B Mohith Venkata Sai Krishna",

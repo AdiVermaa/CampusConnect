@@ -99,6 +99,8 @@ const createApiClient = (basePath) => {
 
 export const API = createApiClient("/api/auth");
 export const PostsAPI = createApiClient("/api/posts");
+export const ChatAPI = createApiClient("/api/chat");
+// export const ChatAPI = createApiClient("/api/chat");
 
 export const signup = (data) => API.post("/signup", data);
 export const login = (data) => API.post("/login", data);

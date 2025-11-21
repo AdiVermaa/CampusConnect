@@ -37,6 +37,7 @@ const postSchema = new mongoose.Schema(
       maxlength: 2000,
     },
     image: { type: String, default: null },
+    image: { type: String, default: null },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -44,6 +45,15 @@ const postSchema = new mongoose.Schema(
       },
     ],
     comments: [commentSchema],
+    sharedWith: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
     sharedWith: [
       {
         type: mongoose.Schema.Types.ObjectId,

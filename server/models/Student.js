@@ -13,7 +13,7 @@ const studentSchema = new mongoose.Schema(
   }
 );
 
-studentSchema.index({ email: 1 }, { unique: true });
+
 
 export default mongoose.models.Student ||
   mongoose.model("Student", studentSchema);

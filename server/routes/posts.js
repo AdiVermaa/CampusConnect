@@ -2,6 +2,15 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Post from "../models/Post.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
+import {
+  populateConversation,
+  populateMessage,
+  ensureParticipant,
+  updateConversationLastMessage,
+  emitMessageEvent,
+} from "../utils/chatHelpers.js";
 
 const router = express.Router();
 
@@ -193,27 +202,53 @@ router.post(
       return res.status(404).json({ error: "Post not found" });
     }
 
-    const { targetUserId } = req.body || {};
+    const { conversationId } = req.body || {};
 
-    if (targetUserId && !mongoose.Types.ObjectId.isValid(targetUserId)) {
-      return res.status(400).json({ error: "Invalid user to share with" });
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ error: "Valid conversationId is required" });
     }
 
-    post.sharedWith = post.sharedWith || [];
+    let conversation = await populateConversation(
+      Conversation.findById(conversationId)
+    );
 
-    if (targetUserId) {
-      const alreadyShared = post.sharedWith.some(
-        (id) => id.toString() === targetUserId
-      );
-      if (!alreadyShared) {
-        post.sharedWith.push(targetUserId);
-      }
+    if (!conversation) {
+      return res.status(404).json({ error: "Conversation not found" });
     }
 
+    ensureParticipant(conversation, req.user.id);
+
+    const messageDoc = await Message.create({
+      conversation: conversationId,
+      sender: req.user.id,
+      text: "",
+      post: post._id,
+    });
+
+    await populateMessage(messageDoc);
+
+    conversation = await updateConversationLastMessage(
+      conversation,
+      messageDoc
+    );
+
+    const sharedSet = new Set(
+      (post.sharedWith || []).map((id) => id.toString())
+    );
+    conversation.participants.forEach((participant) => {
+      sharedSet.add(participant._id.toString());
+    });
+    post.sharedWith = Array.from(sharedSet);
     post.sharesCount = post.sharedWith.length;
     await post.save();
 
-    res.json({ post: formatPost(post, req.user.id) });
+    const io = req.app.get("io");
+    emitMessageEvent(io, conversation, messageDoc);
+
+    res.json({
+      post: formatPost(post, req.user.id),
+      conversationId: conversation._id.toString(),
+    });
   })
 );
 

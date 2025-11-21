@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { API, PostsAPI, getAccessToken, clearAccessToken } from "../api/auth";
+import { io } from "socket.io-client";
+import { API_BASE_URL } from "../config";
+import { API, PostsAPI, ChatAPI, getAccessToken, clearAccessToken } from "../api/auth";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -17,7 +19,34 @@ export default function Dashboard() {
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [shareError, setShareError] = useState("");
   const [shareTarget, setShareTarget] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [chatError, setChatError] = useState("");
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatSelection, setNewChatSelection] = useState([]);
+  const [groupName, setGroupName] = useState("");
+  const [newChatError, setNewChatError] = useState("");
+  const socketRef = useRef(null);
+  const selectedConversationRef = useRef(null);
   const navigate = useNavigate();
+
+  const sortConversations = (items) =>
+    [...items].sort(
+      (a, b) =>
+        new Date(b?.lastMessageAt || 0).getTime() -
+        new Date(a?.lastMessageAt || 0).getTime()
+    );
+
+  const joinConversationRooms = (conversationList) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    conversationList.forEach((conversation) => {
+      socket.emit("conversation:join", conversation.id);
+    });
+  };
 
   useEffect(() => {
     const token = getAccessToken();
@@ -67,8 +96,16 @@ export default function Dashboard() {
     return () => clearTimeout(handle);
   }, [searchQuery]);
 
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
+
   const handleLogout = () => {
     clearAccessToken();
+    socketRef.current?.disconnect();
+    setConversations([]);
+    setSelectedConversation(null);
+    setMessages([]);
     navigate("/login");
   };
 
