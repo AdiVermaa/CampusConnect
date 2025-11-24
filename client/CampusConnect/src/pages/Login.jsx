@@ -25,6 +25,21 @@ export default function Login() {
       if (res.ok) {
         // ✅ Save access token in memory only & redirect
         setAccessToken(data.accessToken);
+
+        // Decode JWT to get user info and save to localStorage
+        try {
+          const base64Url = data.accessToken.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const userData = JSON.parse(jsonPayload);
+          localStorage.setItem('user', JSON.stringify(userData));
+          console.log('User data saved:', userData);
+        } catch (err) {
+          console.error('Failed to decode token:', err);
+        }
+
         setMessage("Login successful! Redirecting...");
         navigate("/dashboard", { replace: true });
       } else {

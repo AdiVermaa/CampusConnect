@@ -177,14 +177,14 @@ router.post(
       }
     }
 
-    const message = await populateMessage(
-      Message.create({
-        conversation: conversationId,
-        sender: req.user.id,
-        text: text?.trim() || "",
-        post: post ? post._id : undefined,
-      })
-    );
+    const createdMessage = await Message.create({
+      conversation: conversationId,
+      sender: req.user.id,
+      text: text?.trim() || "",
+      post: post ? post._id : undefined,
+    });
+
+    const message = await populateMessage(Message.findById(createdMessage._id));
 
     await updateConversationLastMessage(conversation, message);
 

@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Messages from "./pages/Messages";
 import { setAccessToken, refresh, getAccessToken } from "./api/auth";
 
 export default function App() {
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile/:userId" element={<Profile />} />
+        <Route path="/messages" element={<Messages />} />
       </Routes>
     </Router>
   );

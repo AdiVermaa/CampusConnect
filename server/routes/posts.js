@@ -50,11 +50,11 @@ const asyncHandler = (handler) => async (req, res, next) => {
 const formatUser = (userDoc) =>
   userDoc
     ? {
-        id: userDoc._id.toString(),
-        name: userDoc.name,
-        email: userDoc.email,
-        profile_photo: userDoc.profile_photo || null,
-      }
+      id: userDoc._id.toString(),
+      name: userDoc.name,
+      email: userDoc.email,
+      profile_photo: userDoc.profile_photo || null,
+    }
     : null;
 
 const formatPost = (postDoc, currentUserId) => {
@@ -196,36 +196,78 @@ router.post(
   "/:postId/share",
   authenticate,
   asyncHandler(async (req, res) => {
+    console.log("Share request received:", {
+      params: req.params,
+      body: req.body,
+      user: req.user.id
+    });
     const post = await loadPost(req.params.postId);
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
 
-    const { conversationId } = req.body || {};
+    const { conversationId, targetUserId } = req.body || {};
 
-    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ error: "Valid conversationId is required" });
+    let conversation;
+
+    // If conversationId is provided, use it
+    if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+      conversation = await populateConversation(
+        Conversation.findById(conversationId)
+      );
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      ensureParticipant(conversation, req.user.id);
+    }
+    // If targetUserId is provided, find or create conversation
+    else if (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId)) {
+      const participantIds = [
+        new mongoose.Types.ObjectId(req.user.id),
+        new mongoose.Types.ObjectId(targetUserId)
+      ];
+
+      // Try to find existing conversation
+      conversation = await Conversation.findOne({
+        isGroup: false,
+        participants: { $all: participantIds },
+        $expr: { $eq: [{ $size: "$participants" }, 2] },
+      });
+
+      // Create new conversation if none exists
+      if (!conversation) {
+        const newConv = await Conversation.create({
+          isGroup: false,
+          participants: participantIds,
+        });
+        // Fetch it again as a query to populate
+        conversation = await populateConversation(
+          Conversation.findById(newConv._id)
+        );
+      } else {
+        // Fetch existing conversation with populate
+        conversation = await populateConversation(
+          Conversation.findById(conversation._id)
+        );
+      }
+    }
+    else {
+      return res.status(400).json({
+        error: "Either conversationId or targetUserId is required"
+      });
     }
 
-    let conversation = await populateConversation(
-      Conversation.findById(conversationId)
-    );
-
-    if (!conversation) {
-      return res.status(404).json({ error: "Conversation not found" });
-    }
-
-    ensureParticipant(conversation, req.user.id);
-
-    const messageDoc = await Message.create({
-      conversation: conversationId,
+    const createdMessage = await Message.create({
+      conversation: conversation._id,
       sender: req.user.id,
       text: "",
       post: post._id,
     });
 
-    await populateMessage(messageDoc);
+    const messageDoc = await populateMessage(Message.findById(createdMessage._id));
 
     conversation = await updateConversationLastMessage(
       conversation,

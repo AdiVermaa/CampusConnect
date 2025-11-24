@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import { API_BASE_URL } from "../config";
 import { API, PostsAPI, ChatAPI, getAccessToken, clearAccessToken } from "../api/auth";
+import MessagesWidget from "../components/MessagesWidget";
+import MessagesPopup from "../components/MessagesPopup";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const [newChatSelection, setNewChatSelection] = useState([]);
   const [groupName, setGroupName] = useState("");
   const [newChatError, setNewChatError] = useState("");
+  const [showMessagesPopup, setShowMessagesPopup] = useState(false);
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const navigate = useNavigate();
@@ -397,11 +400,10 @@ export default function Dashboard() {
                 <div className="flex gap-4 mb-4">
                   <button
                     onClick={() => handleToggleLike(post.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium ${
-                      post.isLiked
-                        ? "bg-red-100 text-red-600"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium ${post.isLiked
+                      ? "bg-red-100 text-red-600"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      }`}
                   >
                     👍 {post.isLiked ? "Liked" : "Like"}
                   </button>
@@ -462,13 +464,17 @@ export default function Dashboard() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-full lg:w-1/4 bg-white rounded-xl shadow p-5 h-fit sticky top-20">
-          <h3 className="text-lg font-semibold mb-3">Campus News</h3>
-          <ul className="space-y-2 text-sm text-gray-700">
-            <li>🎓 Upcoming Hackathon - 25th Nov</li>
-            <li>📢 Internship Drive by Google</li>
-            <li>🏆 Rajputana Clan wins Sports Fest!</li>
-          </ul>
+        <div className="w-full lg:w-1/4 space-y-5">
+          <MessagesWidget onOpenPopup={() => setShowMessagesPopup(true)} />
+
+          <div className="bg-white rounded-xl shadow p-5">
+            <h3 className="text-lg font-semibold mb-3">Campus News</h3>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li>🎓 Upcoming Hackathon - 25th Nov</li>
+              <li>📢 Internship Drive by Google</li>
+              <li>🏆 Rajputana Clan wins Sports Fest!</li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -533,6 +539,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <MessagesPopup
+        isOpen={showMessagesPopup}
+        onClose={() => setShowMessagesPopup(false)}
+      />
     </div>
   );
 }

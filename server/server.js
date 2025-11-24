@@ -104,9 +104,16 @@ const authenticateSocket = (socket, next) => {
 io.use(authenticateSocket);
 
 io.on("connection", (socket) => {
-  socket.on("conversation:join", (conversationId) => {
+  console.log(`✅ User ${socket.data.user.id} connected`);
+
+  socket.on("join:conversation", (conversationId) => {
     if (!conversationId) return;
     socket.join(`conversation:${conversationId}`);
+    console.log(`User ${socket.data.user.id} joined conversation ${conversationId}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`❌ User ${socket.data.user.id} disconnected`);
   });
 });
 
