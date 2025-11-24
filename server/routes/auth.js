@@ -18,6 +18,7 @@ const cookieOptions = {
   secure: isProd,
   sameSite: isProd ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000,
+  ...(isProd && { partitioned: true }), // Required for cross-site cookies in Chrome
 };
 
 const ensureJwtSecrets = () => {
@@ -227,8 +228,8 @@ router.post("/refresh", async (req, res) => {
       error.name === "JsonWebTokenError" || error.name === "TokenExpiredError";
 
     if (isJwtError) {
-    return res
-      .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
+      return res
+        .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
         .status(403)
         .json({ error: "Invalid refresh token" });
     }
