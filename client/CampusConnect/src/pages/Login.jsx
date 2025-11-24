@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
-import { setAccessToken } from "../api/auth";
+import { setAccessToken, setRefreshToken } from "../api/auth";
 
 
 export default function Login() {
@@ -23,8 +23,9 @@ export default function Login() {
       const data = await res.json();
 
       if (res.ok) {
-        // ✅ Save access token in memory only & redirect
+        // ✅ Save access token and refresh token in memory
         setAccessToken(data.accessToken);
+        setRefreshToken(data.refreshToken);
 
         // Decode JWT to get user info and save to localStorage
         try {

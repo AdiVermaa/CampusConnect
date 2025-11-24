@@ -3,16 +3,23 @@ import { API_BASE_URL } from "../config";
 
 // In-memory access token storage
 let accessToken = null;
+let refreshToken = null;
 
 export const setAccessToken = (token) => {
   accessToken = token;
 };
 
+export const setRefreshToken = (token) => {
+  refreshToken = token;
+};
+
 export const clearAccessToken = () => {
   accessToken = null;
+  refreshToken = null;
 };
 
 export const getAccessToken = () => accessToken;
+export const getRefreshToken = () => refreshToken;
 
 // If a request fails with 401, try to refresh the access token once
 let isRefreshing = false;
@@ -64,10 +71,19 @@ const attachInterceptors = (client) => {
         isRefreshing = true;
 
         try {
+          const currentRefreshToken = refreshToken;
+          if (!currentRefreshToken) {
+            throw new Error("No refresh token available");
+          }
+
           const res = await axios.post(
             `${API_BASE_URL}/api/auth/refresh`,
             {},
-            { withCredentials: true }
+            {
+              headers: {
+                Authorization: `Bearer ${currentRefreshToken}`,
+              },
+            }
           );
           const newToken = res.data.accessToken;
           setAccessToken(newToken);

@@ -179,6 +179,7 @@ router.post("/login", async (req, res) => {
       .json({
         message: "Login successful",
         accessToken,
+        refreshToken, // Also send in response for cross-domain support
       });
   } catch (error) {
     console.error("❌ Login failed:", error?.message || error);
@@ -187,7 +188,15 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/refresh", async (req, res) => {
-  const { refreshToken } = req.cookies || {};
+  // Try to get refresh token from cookie first, then from Authorization header
+  let refreshToken = req.cookies?.refreshToken;
+
+  if (!refreshToken) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      refreshToken = authHeader.substring(7);
+    }
+  }
 
   if (!refreshToken) {
     return res.status(401).json({ error: "No refresh token provided" });
