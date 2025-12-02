@@ -784,3 +784,135 @@
     padding: 12px;
   }
 }
+
+/* Dark Mode Overrides */
+.dark .messages-container {
+  background: #111827;
+  color: #fff;
+}
+
+.dark .messages-sidebar {
+  background: #1f2937;
+  border-right-color: #374151;
+}
+
+.dark .messages-header {
+  border-bottom-color: #374151;
+}
+
+.dark .user-info h2 {
+  color: #fff;
+}
+
+.dark .search-box {
+  background: #374151;
+}
+
+.dark .search-box input {
+  color: #fff;
+}
+
+.dark .messages-tabs {
+  border-bottom-color: #374151;
+}
+
+.dark .tab {
+  color: #9ca3af;
+}
+
+.dark .tab.active {
+  color: #ef4444;
+  border-bottom-color: #ef4444;
+}
+
+.dark .conversation-item:hover {
+  background: #374151;
+}
+
+.dark .conversation-item.active {
+  background: #7f1d1d;
+}
+
+.dark .conversation-info h4 {
+  color: #fff;
+}
+
+.dark .conversation-info .time {
+  color: #9ca3af;
+}
+
+.dark .last-message {
+  color: #9ca3af;
+}
+
+.dark .messages-chat {
+  background: #111827;
+}
+
+.dark .chat-header {
+  border-bottom-color: #374151;
+}
+
+.dark .chat-user-info h3 {
+  color: #fff;
+}
+
+.dark .chat-messages {
+  background: #000;
+}
+
+.dark .chat-input {
+  background: #1f2937;
+  border-top-color: #374151;
+}
+
+.dark .chat-input input {
+  background: #374151;
+  border-color: #4b5563;
+  color: #fff;
+}
+
+.dark .message.received .message-bubble {
+  background: #374151;
+  color: #fff;
+}
+
+.dark .empty-chat {
+  background: #111827;
+}
+
+.dark .empty-chat h2 {
+  color: #fff;
+}
+
+.dark .modal-content {
+  background: #1f2937;
+}
+
+.dark .modal-header {
+  border-bottom-color: #374151;
+}
+
+.dark .modal-header h3 {
+  color: #fff;
+}
+
+.dark .user-search-input {
+  border-bottom-color: #374151;
+}
+
+.dark .user-search-input label {
+  color: #fff;
+}
+
+.dark .user-search-input input {
+  color: #fff;
+}
+
+.dark .user-result-item:hover {
+  background-color: #7f1d1d;
+}
+
+.dark .user-info-small h4 {
+  color: #fff;
+}

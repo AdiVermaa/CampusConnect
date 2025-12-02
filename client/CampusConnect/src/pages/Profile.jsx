@@ -86,7 +86,7 @@ export default function Profile() {
         setMessage("Image size should be less than 5MB");
         return;
       }
-      
+
       // Compress and resize image before converting to base64
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -174,7 +174,7 @@ export default function Profile() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600 text-lg">
+      <div className="flex items-center justify-center min-h-screen text-gray-600 dark:text-gray-300 text-lg bg-gray-100 dark:bg-gray-900">
         Loading profile...
       </div>
     );
@@ -182,16 +182,16 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600 text-lg">
+      <div className="flex items-center justify-center min-h-screen text-gray-600 dark:text-gray-300 text-lg bg-gray-100 dark:bg-gray-900">
         Profile not found
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-200">
       {/* Navbar */}
-      <nav className="bg-white shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10">
+      <nav className="bg-white dark:bg-gray-800 shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10 transition-colors duration-200">
         <h1
           className="text-2xl font-bold text-red-600 cursor-pointer"
           onClick={() => navigate("/dashboard")}
@@ -200,7 +200,7 @@ export default function Profile() {
         </h1>
         <button
           onClick={() => navigate("/dashboard")}
-          className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+          className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
         >
           Back to Dashboard
         </button>
@@ -208,7 +208,7 @@ export default function Profile() {
 
       <div className="max-w-4xl mx-auto p-6">
         {/* Profile Header */}
-        <div className="bg-white rounded-xl shadow p-8 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-8 mb-6 transition-colors duration-200">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-6">
               <div className="relative">
@@ -217,8 +217,8 @@ export default function Profile() {
                     isEditing && photoPreview
                       ? photoPreview
                       : profile.profile_photo
-                      ? profile.profile_photo
-                      : "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
+                        ? profile.profile_photo
+                        : "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
                   }
                   alt="Profile"
                   className="w-32 h-32 rounded-full border-4 border-red-500 object-cover"
@@ -252,16 +252,16 @@ export default function Profile() {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="text-3xl font-bold text-gray-800 border-b-2 border-red-500 focus:outline-none bg-transparent"
+                    className="text-3xl font-bold text-gray-800 dark:text-white border-b-2 border-red-500 focus:outline-none bg-transparent"
                     placeholder="Your Name"
                   />
                 ) : (
-                  <h2 className="text-3xl font-bold text-gray-800">{profile.name}</h2>
+                  <h2 className="text-3xl font-bold text-gray-800 dark:text-white">{profile.name}</h2>
                 )}
-                <p className="text-gray-600 mt-1">{profile.department || "Student"}</p>
-                <p className="text-sm text-gray-500 mt-1">{profile.email}</p>
-                <p className="text-sm text-gray-500">Batch: {profile.year || "N/A"}</p>
-                <p className="text-sm text-gray-700 mt-2">
+                <p className="text-gray-600 dark:text-gray-300 mt-1">{profile.department || "Student"}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.email}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Batch: {profile.year || "N/A"}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
                   Connections: <span className="font-semibold">{profile.connections_count}</span>
                 </p>
               </div>
@@ -277,11 +277,10 @@ export default function Profile() {
               <button
                 onClick={handleConnect}
                 disabled={profile.is_connected}
-                className={`px-6 py-2 rounded-lg transition ${
-                  profile.is_connected
-                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                className={`px-6 py-2 rounded-lg transition ${profile.is_connected
+                    ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
                     : "bg-red-600 text-white hover:bg-red-700"
-                }`}
+                  }`}
               >
                 {profile.is_connected ? "Connected" : "Connect"}
               </button>
@@ -296,27 +295,27 @@ export default function Profile() {
         )}
 
         {/* Bio Section */}
-        <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">About</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 transition-colors duration-200">
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">About</h3>
           {isEditing ? (
             <textarea
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
               placeholder="Tell us about yourself..."
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none"
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none dark:bg-gray-700 dark:text-white dark:border-gray-600"
               rows="4"
             />
           ) : (
-            <p className="text-gray-700">{profile.bio || "No bio added yet."}</p>
+            <p className="text-gray-700 dark:text-gray-300">{profile.bio || "No bio added yet."}</p>
           )}
         </div>
 
         {/* Links Section */}
-        <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">Links</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 transition-colors duration-200">
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Links</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Portfolio Link
               </label>
               {isEditing ? (
@@ -325,7 +324,7 @@ export default function Profile() {
                   value={formData.portfolio_link}
                   onChange={(e) => setFormData({ ...formData, portfolio_link: e.target.value })}
                   placeholder="https://yourportfolio.com"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               ) : (
                 <div>
@@ -334,26 +333,26 @@ export default function Profile() {
                       href={profile.portfolio_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:underline"
+                      className="text-red-600 hover:underline dark:text-red-400"
                     >
                       {profile.portfolio_link}
                     </a>
                   ) : (
-                    <p className="text-gray-500">Not added</p>
+                    <p className="text-gray-500 dark:text-gray-400">Not added</p>
                   )}
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">LinkedIn</label>
               {isEditing ? (
                 <input
                   type="url"
                   value={formData.linkedin_link}
                   onChange={(e) => setFormData({ ...formData, linkedin_link: e.target.value })}
                   placeholder="https://linkedin.com/in/yourprofile"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               ) : (
                 <div>
@@ -362,26 +361,26 @@ export default function Profile() {
                       href={profile.linkedin_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:underline"
+                      className="text-red-600 hover:underline dark:text-red-400"
                     >
                       {profile.linkedin_link}
                     </a>
                   ) : (
-                    <p className="text-gray-500">Not added</p>
+                    <p className="text-gray-500 dark:text-gray-400">Not added</p>
                   )}
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">GitHub</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GitHub</label>
               {isEditing ? (
                 <input
                   type="url"
                   value={formData.github_link}
                   onChange={(e) => setFormData({ ...formData, github_link: e.target.value })}
                   placeholder="https://github.com/yourusername"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               ) : (
                 <div>
@@ -390,26 +389,26 @@ export default function Profile() {
                       href={profile.github_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:underline"
+                      className="text-red-600 hover:underline dark:text-red-400"
                     >
                       {profile.github_link}
                     </a>
                   ) : (
-                    <p className="text-gray-500">Not added</p>
+                    <p className="text-gray-500 dark:text-gray-400">Not added</p>
                   )}
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">LeetCode</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">LeetCode</label>
               {isEditing ? (
                 <input
                   type="url"
                   value={formData.leetcode_link}
                   onChange={(e) => setFormData({ ...formData, leetcode_link: e.target.value })}
                   placeholder="https://leetcode.com/yourusername"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               ) : (
                 <div>
@@ -418,12 +417,12 @@ export default function Profile() {
                       href={profile.leetcode_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:underline"
+                      className="text-red-600 hover:underline dark:text-red-400"
                     >
                       {profile.leetcode_link}
                     </a>
                   ) : (
-                    <p className="text-gray-500">Not added</p>
+                    <p className="text-gray-500 dark:text-gray-400">Not added</p>
                   )}
                 </div>
               )}
@@ -442,11 +441,11 @@ export default function Profile() {
 
         {/* Danger Zone */}
         {profile.is_own_profile && (
-          <div className="bg-white rounded-xl shadow p-6 border border-red-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 border border-red-200 dark:border-red-900 transition-colors duration-200">
             <h3 className="text-xl font-semibold text-red-600 mb-2">
               Danger Zone
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Deleting your account will permanently remove your profile and
               connections. This action cannot be undone.
             </p>
