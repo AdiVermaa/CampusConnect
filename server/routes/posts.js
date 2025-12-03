@@ -116,7 +116,7 @@ router.post(
       return res.status(400).json({ error: "Post content is required" });
     }
 
-    if (image && image.length > 2_000_000) {
+    if (image && image.length > 10_000_000) {
       return res
         .status(400)
         .json({ error: "Image payload too large. Please upload a smaller file." });

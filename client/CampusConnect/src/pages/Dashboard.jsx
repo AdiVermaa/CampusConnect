@@ -145,6 +145,8 @@ export default function Dashboard() {
       setPostImage(null);
     } catch (error) {
       console.error("Failed to create post", error);
+      const errorMessage = error.response?.data?.error || "Failed to create post";
+      alert(errorMessage);
     } finally {
       setIsPosting(false);
     }
