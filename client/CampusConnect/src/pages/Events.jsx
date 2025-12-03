@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API, getAccessToken, clearAccessToken } from "../api/auth";
+import { EventsAPI, getAccessToken, clearAccessToken } from "../api/auth";
 
 export default function Events() {
     const navigate = useNavigate();
@@ -33,7 +33,7 @@ export default function Events() {
         try {
             setLoading(true);
             const params = filter === "upcoming" ? { upcoming: "true" } : {};
-            const res = await API.get("/api/events", { params });
+            const res = await EventsAPI.get("/", { params });
             setEvents(res.data.events || []);
         } catch (error) {
             console.error("Failed to fetch events:", error);
@@ -55,7 +55,7 @@ export default function Events() {
                 maxAttendees: newEvent.maxAttendees ? parseInt(newEvent.maxAttendees) : null,
             };
 
-            await API.post("/api/events", eventData);
+            await EventsAPI.post("/", eventData);
             setShowCreateModal(false);
             setNewEvent({
                 title: "",
@@ -79,9 +79,9 @@ export default function Events() {
     const handleRegister = async (eventId, isAttending) => {
         try {
             if (isAttending) {
-                await API.delete(`/api/events/${eventId}/register`);
+                await EventsAPI.delete(`/${eventId}/register`);
             } else {
-                await API.post(`/api/events/${eventId}/register`);
+                await EventsAPI.post(`/${eventId}/register`);
             }
             fetchEvents();
         } catch (error) {
@@ -93,7 +93,7 @@ export default function Events() {
     const handleDeleteEvent = async (eventId) => {
         if (!confirm("Are you sure you want to delete this event?")) return;
         try {
-            await API.delete(`/api/events/${eventId}`);
+            await EventsAPI.delete(`/${eventId}`);
             fetchEvents();
         } catch (error) {
             console.error("Failed to delete event:", error);

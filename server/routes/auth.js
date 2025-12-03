@@ -78,9 +78,42 @@ const getStudentMeta = async (email) => {
 
 const getConnectionsCount = async (userId) => {
   try {
-    return await Connection.countDocuments({
-      $or: [{ user_id: userId }, { connected_user_id: userId }],
-    });
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const result = await Connection.aggregate([
+      {
+        $match: {
+          $or: [{ user_id: objectId }, { connected_user_id: objectId }],
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: {
+            otherId: {
+              $cond: [
+                { $eq: ["$user_id", objectId] },
+                "$connected_user_id",
+                "$user_id",
+              ],
+            },
+          },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$otherId"] } } },
+          ],
+          as: "otherUser",
+        },
+      },
+      {
+        $match: {
+          "otherUser.0": { $exists: true },
+        },
+      },
+      {
+        $count: "count",
+      },
+    ]);
+
+    return result[0]?.count || 0;
   } catch (error) {
     console.warn(
       "⚠️ Could not fetch connections count:",

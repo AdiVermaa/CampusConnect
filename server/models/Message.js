@@ -23,6 +23,12 @@ const messageSchema = new mongoose.Schema(
       ref: "Post",
       default: null,
     },
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   {
     timestamps: true,

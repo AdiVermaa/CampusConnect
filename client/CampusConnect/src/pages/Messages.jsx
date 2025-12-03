@@ -94,6 +94,8 @@ const Messages = () => {
             if (socketRef.current) {
                 socketRef.current.emit('join:conversation', selectedConversation.id);
             }
+            // Mark messages as read
+            markAsRead(selectedConversation.id);
         }
     }, [selectedConversation]);
 
@@ -137,6 +139,23 @@ const Messages = () => {
             setMessages(data.messages || []);
         } catch (error) {
             console.error('Error fetching messages:', error);
+        }
+    };
+
+    const markAsRead = async (conversationId) => {
+        try {
+            const token = getAccessToken();
+            await fetch(
+                `${API_BASE_URL}/api/chat/conversations/${conversationId}/read`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+        } catch (error) {
+            console.error('Error marking messages as read:', error);
         }
     };
 
@@ -351,13 +370,9 @@ const Messages = () => {
 
                             <div className="chat-messages">
                                 {messages.map((message) => {
-                                    const isSent = String(message.sender.id) === String(currentUser?.id);
-                                    console.log('Message alignment check:', {
-                                        messageSenderId: message.sender.id,
-                                        currentUserId: currentUser?.id,
-                                        isSent,
-                                        messageText: message.text
-                                    });
+                                    const sender = message.sender || { id: 'deleted', name: 'Deleted User', profile_photo: null };
+                                    const isSent = String(sender.id) === String(currentUser?.id);
+
                                     return (
                                         <div
                                             key={message.id}
@@ -365,11 +380,11 @@ const Messages = () => {
                                         >
                                             {!isSent && (
                                                 <div className="message-avatar">
-                                                    {message.sender.profile_photo ? (
-                                                        <img src={message.sender.profile_photo} alt={message.sender.name} />
+                                                    {sender.profile_photo ? (
+                                                        <img src={sender.profile_photo} alt={sender.name} />
                                                     ) : (
                                                         <div className="avatar-placeholder-small">
-                                                            {message.sender.name.charAt(0).toUpperCase()}
+                                                            {sender.name.charAt(0).toUpperCase()}
                                                         </div>
                                                     )}
                                                 </div>

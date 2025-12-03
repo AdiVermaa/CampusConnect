@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API, getAccessToken, clearAccessToken } from "../api/auth";
+import { API, ConnectionsAPI, getAccessToken, clearAccessToken } from "../api/auth";
 
 export default function Network() {
     const navigate = useNavigate();
@@ -22,8 +22,8 @@ export default function Network() {
         try {
             setLoading(true);
             const [connectionsRes, searchRes] = await Promise.all([
-                API.get("/api/connections"),
-                API.get("/api/auth/search", { params: { query: "" } }),
+                ConnectionsAPI.get("/"),
+                API.get("/search", { params: { query: "" } }),
             ]);
 
             setConnections(connectionsRes.data.connections || []);
@@ -49,7 +49,7 @@ export default function Network() {
 
     const handleConnect = async (userId) => {
         try {
-            await API.post(`/api/connections/${userId}`);
+            await ConnectionsAPI.post(`/${userId}`);
             fetchData();
         } catch (error) {
             console.error("Failed to connect:", error);
@@ -60,7 +60,7 @@ export default function Network() {
     const handleDisconnect = async (userId) => {
         if (!confirm("Are you sure you want to remove this connection?")) return;
         try {
-            await API.delete(`/api/connections/${userId}`);
+            await ConnectionsAPI.delete(`/${userId}`);
             fetchData();
         } catch (error) {
             console.error("Failed to disconnect:", error);
@@ -76,7 +76,7 @@ export default function Network() {
         }
 
         try {
-            const res = await API.get("/api/auth/search", {
+            const res = await API.get("/search", {
                 params: { query: searchQuery },
             });
 

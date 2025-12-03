@@ -51,10 +51,19 @@ router.get(
       }).sort({ lastMessageAt: -1, updatedAt: -1 })
     );
 
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conversation) => {
+        const unreadCount = await Message.countDocuments({
+          conversation: conversation._id,
+          readBy: { $ne: req.user.id },
+          sender: { $ne: req.user.id },
+        });
+        return formatConversation(conversation, req.user.id, unreadCount);
+      })
+    );
+
     res.json({
-      conversations: conversations.map((conversation) =>
-        formatConversation(conversation, req.user.id)
-      ),
+      conversations: conversationsWithUnread,
     });
   }
 );
@@ -209,6 +218,31 @@ router.post(
       message: formatMessage(message),
       conversation: formatConversation(conversation, req.user.id),
     });
+  }
+);
+
+router.post(
+  "/conversations/:conversationId/read",
+  authenticate,
+  async (req, res) => {
+    const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ error: "Invalid conversation id" });
+    }
+
+    await Message.updateMany(
+      {
+        conversation: conversationId,
+        readBy: { $ne: req.user.id },
+        sender: { $ne: req.user.id },
+      },
+      {
+        $addToSet: { readBy: req.user.id },
+      }
+    );
+
+    res.json({ success: true });
   }
 );
 

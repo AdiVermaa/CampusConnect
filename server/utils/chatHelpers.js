@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 export const formatUser = (userDoc) =>
   userDoc
     ? {
-        id: userDoc._id.toString(),
-        name: userDoc.name,
-        email: userDoc.email,
-        profile_photo: userDoc.profile_photo || null,
-      }
+      id: userDoc._id.toString(),
+      name: userDoc.name,
+      email: userDoc.email,
+      profile_photo: userDoc.profile_photo || null,
+    }
     : null;
 
 export const formatPostSummary = (postDoc) => {
@@ -39,7 +39,7 @@ const resolveConversationName = (conversation, currentUserId) => {
   return other ? other.name : "Conversation";
 };
 
-export const formatConversation = (conversation, currentUserId) => ({
+export const formatConversation = (conversation, currentUserId, unreadCount = 0) => ({
   id: conversation._id.toString(),
   name: resolveConversationName(conversation, currentUserId),
   isGroup: conversation.isGroup,
@@ -48,6 +48,7 @@ export const formatConversation = (conversation, currentUserId) => ({
     ? formatMessage(conversation.lastMessage)
     : null,
   lastMessageAt: conversation.lastMessageAt,
+  unreadCount,
 });
 
 export const populateMessage = (query) =>

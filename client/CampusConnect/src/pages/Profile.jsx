@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE_URL } from "../config";
-import { API, getAccessToken, clearAccessToken } from "../api/auth";
+import { API, ConnectionsAPI, getAccessToken, clearAccessToken } from "../api/auth";
 
 export default function Profile() {
   const { userId } = useParams();
@@ -20,6 +20,22 @@ export default function Profile() {
     profile_photo: null,
   });
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [showConnectionsModal, setShowConnectionsModal] = useState(false);
+  const [connectionsList, setConnectionsList] = useState([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
+
+  const handleViewConnections = async () => {
+    setShowConnectionsModal(true);
+    setLoadingConnections(true);
+    try {
+      const res = await ConnectionsAPI.get(`/user/${userId}`);
+      setConnectionsList(res.data.connections || []);
+    } catch (err) {
+      console.error("Failed to fetch connections:", err);
+    } finally {
+      setLoadingConnections(false);
+    }
+  };
 
   useEffect(() => {
     const token = getAccessToken();
@@ -261,7 +277,10 @@ export default function Profile() {
                 <p className="text-gray-600 dark:text-gray-300 mt-1">{profile.department || "Student"}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.email}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Batch: {profile.year || "N/A"}</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+                <p
+                  className="text-sm text-gray-700 dark:text-gray-300 mt-2 cursor-pointer hover:text-red-600 dark:hover:text-red-400 transition"
+                  onClick={handleViewConnections}
+                >
                   Connections: <span className="font-semibold">{profile.connections_count}</span>
                 </p>
               </div>
@@ -278,8 +297,8 @@ export default function Profile() {
                 onClick={handleConnect}
                 disabled={profile.is_connected}
                 className={`px-6 py-2 rounded-lg transition ${profile.is_connected
-                    ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-                    : "bg-red-600 text-white hover:bg-red-700"
+                  ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-700"
                   }`}
               >
                 {profile.is_connected ? "Connected" : "Connect"}
@@ -458,6 +477,54 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* Connections Modal */}
+      {showConnectionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowConnectionsModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Connections</h3>
+              <button onClick={() => setShowConnectionsModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex-1">
+              {loadingConnections ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                </div>
+              ) : connectionsList.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  No connections found.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {connectionsList.map((conn) => (
+                    <div key={conn.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition cursor-pointer" onClick={() => {
+                      navigate(`/profile/${conn.user.id}`);
+                      setShowConnectionsModal(false);
+                    }}>
+                      <img
+                        src={conn.user.profile_photo || "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"}
+                        alt={conn.user.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <div>
+                        <h4 className="font-medium text-gray-800 dark:text-white">{conn.user.name}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{conn.user.department || "Student"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

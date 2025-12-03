@@ -42,22 +42,24 @@ router.get("/", authenticate, async (req, res) => {
             .populate("connected_user_id", "name email profile_photo bio");
 
         // Format connections to always return the "other" user
-        const formattedConnections = connections.map((conn) => {
-            const isInitiator = conn.user_id._id.toString() === userId;
-            const otherUser = isInitiator ? conn.connected_user_id : conn.user_id;
+        const formattedConnections = connections
+            .filter(conn => conn.user_id && conn.connected_user_id) // Filter out invalid connections
+            .map((conn) => {
+                const isInitiator = conn.user_id._id.toString() === userId;
+                const otherUser = isInitiator ? conn.connected_user_id : conn.user_id;
 
-            return {
-                id: conn._id.toString(),
-                user: {
-                    id: otherUser._id.toString(),
-                    name: otherUser.name,
-                    email: otherUser.email,
-                    profile_photo: otherUser.profile_photo || null,
-                    bio: otherUser.bio || null,
-                },
-                createdAt: conn.createdAt,
-            };
-        });
+                return {
+                    id: conn._id.toString(),
+                    user: {
+                        id: otherUser._id.toString(),
+                        name: otherUser.name,
+                        email: otherUser.email,
+                        profile_photo: otherUser.profile_photo || null,
+                        bio: otherUser.bio || null,
+                    },
+                    createdAt: conn.createdAt,
+                };
+            });
 
         res.json({ connections: formattedConnections });
     } catch (error) {
@@ -182,6 +184,49 @@ router.get("/status/:userId", authenticate, async (req, res) => {
     } catch (error) {
         console.error("❌ Get connection status failed:", error?.message || error);
         res.status(500).json({ error: "Failed to check connection status" });
+    }
+});
+
+// Get connections for a specific user
+router.get("/user/:userId", authenticate, async (req, res) => {
+    try {
+        const targetUserId = req.params.userId;
+
+        if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+            return res.status(400).json({ error: "Invalid user ID" });
+        }
+
+        const connections = await Connection.find({
+            $or: [{ user_id: targetUserId }, { connected_user_id: targetUserId }],
+        })
+            .populate("user_id", "name email profile_photo bio department")
+            .populate("connected_user_id", "name email profile_photo bio department");
+
+        // Format connections to always return the "other" user
+        const formattedConnections = connections
+            .filter(conn => conn.user_id && conn.connected_user_id)
+            .map((conn) => {
+                const isInitiator = conn.user_id._id.toString() === targetUserId;
+                const otherUser = isInitiator ? conn.connected_user_id : conn.user_id;
+
+                return {
+                    id: conn._id.toString(),
+                    user: {
+                        id: otherUser._id.toString(),
+                        name: otherUser.name,
+                        email: otherUser.email,
+                        profile_photo: otherUser.profile_photo || null,
+                        bio: otherUser.bio || null,
+                        department: otherUser.department || null,
+                    },
+                    createdAt: conn.createdAt,
+                };
+            });
+
+        res.json({ connections: formattedConnections });
+    } catch (error) {
+        console.error("❌ Get user connections failed:", error?.message || error);
+        res.status(500).json({ error: "Failed to fetch user connections" });
     }
 });
 
