@@ -5,12 +5,10 @@ import { API_BASE_URL } from "../config";
 import { API, PostsAPI, ChatAPI, getAccessToken, clearAccessToken } from "../api/auth";
 import MessagesWidget from "../components/MessagesWidget";
 import MessagesPopup from "../components/MessagesPopup";
-
-import { useTheme } from "../context/ThemeContext";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
   const [user, setUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -37,6 +35,9 @@ export default function Dashboard() {
   const [groupName, setGroupName] = useState("");
   const [newChatError, setNewChatError] = useState("");
   const [showMessagesPopup, setShowMessagesPopup] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [deletePostId, setDeletePostId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
 
@@ -158,13 +159,18 @@ export default function Dashboard() {
   };
 
   const handleDeletePost = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) {
-      return;
-    }
+    setDeletePostId(postId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deletePostId) return;
 
     try {
-      await PostsAPI.delete(`/${postId}`);
-      setPosts((prev) => prev.filter((post) => post.id !== postId));
+      await PostsAPI.delete(`/${deletePostId}`);
+      setPosts((prev) => prev.filter((post) => post.id !== deletePostId));
+      setShowDeleteConfirm(false);
+      setDeletePostId(null);
     } catch (error) {
       console.error("Failed to delete post", error);
       const errorMessage = error.response?.data?.error || "Failed to delete post";
@@ -287,31 +293,6 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4">
-          {/* Mobile Search Icon */}
-          <button
-            onClick={() => setSearchQuery(searchQuery ? "" : " ")}
-            className="md:hidden p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            title="Search"
-          >
-            <svg className="w-6 h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-          >
-            {theme === "light" ? (
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            )}
-          </button>
 
           {user?.isAdmin && (
             <div className="flex items-center mr-2">
@@ -513,7 +494,7 @@ export default function Dashboard() {
                     )}
                   </button>
 
-                  
+
                   <button
                     onClick={() => setShowCommentInput(prev => ({ ...prev, [post.id]: !prev[post.id] }))}
                     className="p-2 hover:opacity-70 transition"
@@ -524,7 +505,7 @@ export default function Dashboard() {
                     </svg>
                   </button>
 
-                  
+
                   <button
                     onClick={() => openShareModal(post)}
                     className="p-2 hover:opacity-70 transition"
@@ -536,7 +517,7 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                
+
                 <div className="py-2">
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                     {post.likesCount} {post.likesCount === 1 ? 'like' : 'likes'}
@@ -698,7 +679,7 @@ export default function Dashboard() {
 
           {/* Search */}
           <button
-            onClick={() => setSearchQuery(searchQuery ? "" : " ")}
+            onClick={() => setShowMobileSearch(true)}
             className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
             title="Search"
           >
@@ -739,8 +720,99 @@ export default function Dashboard() {
         </div>
       </nav>
 
+      {/* Mobile Search Modal */}
+      {showMobileSearch && (
+        <div className="md:hidden fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col">
+          {/* Search Header */}
+          <div className="flex items-center gap-3 p-4 border-b dark:border-gray-700">
+            <button
+              onClick={() => {
+                setShowMobileSearch(false);
+                setSearchQuery("");
+                setSearchResults([]);
+              }}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition"
+            >
+              <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search users..."
+              className="flex-1 bg-gray-100 dark:bg-gray-800 border-none rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 dark:text-white dark:placeholder-gray-400"
+              autoFocus
+            />
+          </div>
+
+          {/* Search Results */}
+          <div className="flex-1 overflow-y-auto">
+            {searchQuery ? (
+              isSearching ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  No users found
+                </div>
+              ) : (
+                <div className="divide-y dark:divide-gray-700">
+                  {searchResults.map((u) => (
+                    <div
+                      key={u.id}
+                      onClick={() => {
+                        navigate(`/profile/${u.id}`);
+                        setShowMobileSearch(false);
+                        setSearchQuery("");
+                      }}
+                      className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition"
+                    >
+                      {u.profile_photo ? (
+                        <img
+                          src={u.profile_photo}
+                          alt={u.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-red-600 dark:bg-red-400 flex items-center justify-center text-white font-bold">
+                          {u.name?.charAt(0).toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800 dark:text-white">{u.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                Search for users by name or email
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Add padding to bottom on mobile to prevent content being hidden by nav */}
       <div className="md:hidden h-16"></div>
+
+      {/* Delete Post Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setDeletePostId(null);
+        }}
+        onConfirm={confirmDeletePost}
+        title="Delete Post"
+        message="Are you sure you want to delete this post? This action cannot be undone."
+        isDanger={true}
+      />
     </div>
   );
 }

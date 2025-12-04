@@ -257,7 +257,7 @@ const Messages = () => {
     return (
         <>
             { }
-            <nav className="bg-white shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10">
+            <nav className="bg-white dark:bg-gray-800 shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10 transition-colors duration-200">
                 <h1
                     className="text-2xl font-bold text-red-600 cursor-pointer"
                     onClick={() => navigate('/dashboard')}
@@ -266,7 +266,7 @@ const Messages = () => {
                 </h1>
                 <button
                     onClick={() => navigate('/dashboard')}
-                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+                    className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                 >
                     Back to Dashboard
                 </button>
