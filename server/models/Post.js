@@ -74,4 +74,3 @@ const postSchema = new mongoose.Schema(
 postSchema.index({ createdAt: -1 });
 
 export default mongoose.models.Post || mongoose.model("Post", postSchema);
-

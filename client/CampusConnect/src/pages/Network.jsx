@@ -28,7 +28,6 @@ export default function Network() {
 
             setConnections(connectionsRes.data.connections || []);
 
-            // Filter out already connected users from suggestions
             const connectedIds = new Set(
                 connectionsRes.data.connections.map((c) => c.user.id)
             );
@@ -154,7 +153,7 @@ export default function Network() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-200">
-            {/* Header */}
+            {}
             <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-sm sticky top-0 z-10 transition-colors duration-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex justify-between items-center">
@@ -173,7 +172,7 @@ export default function Network() {
                 </div>
             </header>
 
-            {/* Tabs */}
+            {}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div className="flex space-x-2 mb-6">
                     <button
@@ -196,7 +195,7 @@ export default function Network() {
                     </button>
                 </div>
 
-                {/* Search Bar */}
+                {}
                 {activeTab === "suggestions" && (
                     <form onSubmit={handleSearch} className="mb-6">
                         <div className="relative max-w-2xl">
@@ -224,7 +223,7 @@ export default function Network() {
                     </form>
                 )}
 
-                {/* Content */}
+                {}
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>

@@ -70,6 +70,11 @@ const eventSchema = new mongoose.Schema(
             enum: ["upcoming", "ongoing", "completed", "cancelled"],
             default: "upcoming",
         },
+        visibility: {
+            type: String,
+            enum: ["public", "admins_only"],
+            default: "public",
+        },
     },
     {
         timestamps: true,

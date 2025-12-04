@@ -28,7 +28,7 @@ const Messages = () => {
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        // Ensure we have an id field (could be _id, id, or userId)
+        
         if (!user.id) {
             user.id = user._id || user.userId;
         }
@@ -41,7 +41,6 @@ const Messages = () => {
         });
         setCurrentUser(user);
 
-        // Initialize Socket.IO
         const token = getAccessToken();
         socketRef.current = io(API_BASE_URL, {
             auth: { token }
@@ -53,16 +52,16 @@ const Messages = () => {
 
         socketRef.current.on('message:new', (data) => {
             console.log('📨 New message received:', data);
-            // Use ref to get current value
+            
             if (selectedConversationRef.current?.id === data.conversationId) {
                 setMessages(prev => {
-                    // Check if message already exists to avoid duplicates
+                    
                     const exists = prev.some(m => m.id === data.message.id);
                     if (exists) return prev;
                     return [...prev, data.message];
                 });
             }
-            // Update conversation list
+            
             fetchConversations();
         });
 
@@ -90,11 +89,11 @@ const Messages = () => {
     useEffect(() => {
         if (selectedConversation) {
             fetchMessages(selectedConversation.id);
-            // Join conversation room
+            
             if (socketRef.current) {
                 socketRef.current.emit('join:conversation', selectedConversation.id);
             }
-            // Mark messages as read
+            
             markAsRead(selectedConversation.id);
         }
     }, [selectedConversation]);
@@ -219,7 +218,7 @@ const Messages = () => {
             const data = await response.json();
 
             if (data.conversation) {
-                // Check if conversation already exists in list
+                
                 const exists = conversations.find(c => c.id === data.conversation.id);
                 if (!exists) {
                     setConversations(prev => [data.conversation, ...prev]);
@@ -253,7 +252,7 @@ const Messages = () => {
 
     return (
         <>
-            {/* Navbar */}
+            {}
             <nav className="bg-white shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10">
                 <h1
                     className="text-2xl font-bold text-red-600 cursor-pointer"
@@ -272,7 +271,7 @@ const Messages = () => {
             <div className="messages-container"
                 style={{ height: 'calc(100vh - 60px)' }}
             >
-                {/* Sidebar */}
+                {}
                 <div className="messages-sidebar">
                     <div className="messages-header">
                         <div className="user-info">
@@ -345,7 +344,7 @@ const Messages = () => {
                     </div>
                 </div>
 
-                {/* Chat Area */}
+                {}
                 <div className="messages-chat">
                     {selectedConversation ? (
                         <>
@@ -455,8 +454,7 @@ const Messages = () => {
                     )}
                 </div>
 
-
-                {/* New Message Modal */}
+                {}
                 {
                     showNewMessageModal && (
                         <div className="modal-overlay" onClick={() => setShowNewMessageModal(false)}>
@@ -517,4 +515,3 @@ const Messages = () => {
 };
 
 export default Messages;
-

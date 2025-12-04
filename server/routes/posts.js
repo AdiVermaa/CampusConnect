@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Post from "../models/Post.js";
+import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import {
@@ -94,14 +95,23 @@ router.get(
   "/feed",
   authenticate,
   asyncHandler(async (req, res) => {
+    const currentUser = await User.findById(req.user.id).lean();
+    const canSeeHidden = currentUser?.email === "aditya.verma2024@nst.rishihood.edu.in";
+
     const posts = await Post.find({})
       .sort({ createdAt: -1 })
       .limit(50)
-      .populate("author", "name email profile_photo")
+      .populate("author", "name email profile_photo isHidden")
       .populate("comments.user", "name email profile_photo");
 
+    const filteredPosts = posts.filter(post => {
+      if (!post.author) return false;
+      if (post.author.isHidden && !canSeeHidden) return false;
+      return true;
+    });
+
     res.json({
-      posts: posts.map((post) => formatPost(post, req.user.id)),
+      posts: filteredPosts.map((post) => formatPost(post, req.user.id)),
     });
   })
 );
@@ -211,7 +221,6 @@ router.post(
 
     let conversation;
 
-    // If conversationId is provided, use it
     if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
       conversation = await populateConversation(
         Conversation.findById(conversationId)
@@ -223,32 +232,30 @@ router.post(
 
       ensureParticipant(conversation, req.user.id);
     }
-    // If targetUserId is provided, find or create conversation
+    
     else if (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId)) {
       const participantIds = [
         new mongoose.Types.ObjectId(req.user.id),
         new mongoose.Types.ObjectId(targetUserId)
       ];
 
-      // Try to find existing conversation
       conversation = await Conversation.findOne({
         isGroup: false,
         participants: { $all: participantIds },
         $expr: { $eq: [{ $size: "$participants" }, 2] },
       });
 
-      // Create new conversation if none exists
       if (!conversation) {
         const newConv = await Conversation.create({
           isGroup: false,
           participants: participantIds,
         });
-        // Fetch it again as a query to populate
+        
         conversation = await populateConversation(
           Conversation.findById(newConv._id)
         );
       } else {
-        // Fetch existing conversation with populate
+        
         conversation = await populateConversation(
           Conversation.findById(conversation._id)
         );
@@ -294,5 +301,24 @@ router.post(
   })
 );
 
-export default router;
+router.delete(
+  "/:postId",
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const post = await loadPost(req.params.postId);
 
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    if (post.author._id.toString() !== req.user.id) {
+      return res.status(403).json({ error: "You can only delete your own posts" });
+    }
+
+    await Post.findByIdAndDelete(req.params.postId);
+
+    res.json({ message: "Post deleted successfully" });
+  })
+);
+
+export default router;

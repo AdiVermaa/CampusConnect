@@ -25,4 +25,3 @@ connectionSchema.index(
 
 export default mongoose.models.Connection ||
   mongoose.model("Connection", connectionSchema);
-

@@ -29,7 +29,6 @@ const MessagesWidget = ({ onOpenPopup }) => {
             setConversations((convData.conversations || []).slice(0, 5));
             setCurrentUser(userResponse.data);
 
-            // Calculate unread count - count conversations with unread messages
             const conversationsWithUnread = (convData.conversations || []).filter(
                 (conv) => (conv.unreadCount || 0) > 0
             ).length;
@@ -70,4 +69,3 @@ const MessagesWidget = ({ onOpenPopup }) => {
 };
 
 export default MessagesWidget;
-

@@ -27,4 +27,3 @@ conversationSchema.index({ participants: 1 });
 
 export default mongoose.models.Conversation ||
   mongoose.model("Conversation", conversationSchema);
-

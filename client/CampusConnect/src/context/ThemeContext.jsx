@@ -10,7 +10,7 @@ export const ThemeProvider = ({ children }) => {
     const [theme, setTheme] = useState("light");
 
     useEffect(() => {
-        // Check local storage or system preference on mount
+        
         const savedTheme = localStorage.getItem("theme");
         if (savedTheme) {
             setTheme(savedTheme);
@@ -20,7 +20,7 @@ export const ThemeProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        // Update html class and local storage when theme changes
+        
         const root = window.document.documentElement;
         if (theme === "dark") {
             root.classList.add("dark");

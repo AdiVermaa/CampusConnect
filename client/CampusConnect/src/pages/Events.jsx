@@ -19,6 +19,7 @@ export default function Events() {
         registrationLink: "",
         tags: "",
         maxAttendees: "",
+        visibility: "public",
     });
 
     useEffect(() => {
@@ -68,6 +69,7 @@ export default function Events() {
                 registrationLink: "",
                 tags: "",
                 maxAttendees: "",
+                visibility: "public",
             });
             fetchEvents();
         } catch (error) {
@@ -127,7 +129,7 @@ export default function Events() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-200">
-            {/* Header */}
+            {}
             <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-sm sticky top-0 z-10 transition-colors duration-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex justify-between items-center">
@@ -152,7 +154,7 @@ export default function Events() {
                 </div>
             </header>
 
-            {/* Filters */}
+            {}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div className="flex space-x-2">
                     <button
@@ -176,7 +178,7 @@ export default function Events() {
                 </div>
             </div>
 
-            {/* Events Grid */}
+            {}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
                 {loading ? (
                     <div className="text-center py-12">
@@ -334,7 +336,7 @@ export default function Events() {
                 )}
             </div>
 
-            {/* Create Event Modal */}
+            {}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-200">
@@ -524,6 +526,25 @@ export default function Events() {
                                         placeholder="e.g. tech, networking, career"
                                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={newEvent.visibility === "admins_only"}
+                                            onChange={(e) =>
+                                                setNewEvent({ ...newEvent, visibility: e.target.checked ? "admins_only" : "public" })
+                                            }
+                                            className="rounded text-red-600 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Admins Only
+                                        </span>
+                                    </label>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                                        Only administrators will be able to see this event
+                                    </p>
                                 </div>
 
                                 <div className="flex space-x-3 pt-4">

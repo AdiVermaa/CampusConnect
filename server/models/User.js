@@ -18,13 +18,15 @@ const userSchema = new mongoose.Schema(
     bio: { type: String, default: null },
     profile_photo: { type: String, default: null },
     refresh_token: { type: String, select: false },
+    isAdmin: { type: Boolean, default: false },
+    isHidden: { type: Boolean, default: false },
+    suspended: { type: Boolean, default: false },
+    suspendedAt: { type: Date, default: null },
+    suspendedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   {
     timestamps: true,
   }
 );
 
-
-
 export default mongoose.models.User || mongoose.model("User", userSchema);
-

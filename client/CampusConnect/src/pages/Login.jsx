@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import { setAccessToken, setRefreshToken } from "../api/auth";
 
-
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
-  const navigate = useNavigate(); // ✅ add this
+  const navigate = useNavigate(); 
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -17,17 +16,16 @@ export default function Login() {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // send/receive cookies
+        credentials: "include", 
         body: JSON.stringify(form),
       });
       const data = await res.json();
 
       if (res.ok) {
-        // ✅ Save access token and refresh token in memory
+        
         setAccessToken(data.accessToken);
         setRefreshToken(data.refreshToken);
 
-        // Decode JWT to get user info and save to localStorage
         try {
           const base64Url = data.accessToken.split('.')[1];
           const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -50,7 +48,6 @@ export default function Login() {
       setMessage("Something went wrong. Please try again.");
     }
   };
-
 
   return (
     <div className="flex min-h-screen bg-gray-100">

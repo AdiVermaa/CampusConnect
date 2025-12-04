@@ -39,7 +39,6 @@ export default function Dashboard() {
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
 
-
   const sortConversations = (items) =>
     [...items].sort(
       (a, b) =>
@@ -79,7 +78,6 @@ export default function Dashboard() {
     fetchData();
   }, [navigate]);
 
-  // Debounced search
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
@@ -156,6 +154,21 @@ export default function Dashboard() {
     setPosts((prev) =>
       prev.map((post) => (post.id === updatedPost.id ? updatedPost : post))
     );
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm("Are you sure you want to delete this post?")) {
+      return;
+    }
+
+    try {
+      await PostsAPI.delete(`/${postId}`);
+      setPosts((prev) => prev.filter((post) => post.id !== postId));
+    } catch (error) {
+      console.error("Failed to delete post", error);
+      const errorMessage = error.response?.data?.error || "Failed to delete post";
+      alert(errorMessage);
+    }
   };
 
   const handleToggleLike = async (postId) => {
@@ -235,7 +248,7 @@ export default function Dashboard() {
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col transition-colors duration-200">
-      {/* Navbar */}
+      {}
       <nav className="bg-white dark:bg-gray-800 shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10 transition-colors duration-200">
         <h1 className="text-2xl font-bold text-red-600">CampusConnect</h1>
         <div className="flex-1 max-w-xl mx-6 relative">
@@ -286,6 +299,22 @@ export default function Dashboard() {
               </svg>
             )}
           </button>
+
+          {user?.isAdmin && (
+            <div className="flex items-center mr-2">
+              <span className="text-sm font-medium mr-2 text-gray-700 dark:text-gray-300 hidden md:block">Admin</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  value=""
+                  className="sr-only peer"
+                  onChange={() => navigate("/admin")}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+              </label>
+            </div>
+          )}
+
           <button
             onClick={handleLogout}
             className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
@@ -295,21 +324,26 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* Main content */}
+      {}
       <div className="flex flex-col lg:flex-row justify-center gap-6 mt-6 px-6">
-        {/* Left Sidebar */}
+        {}
         <div className="w-full lg:w-1/4 bg-white dark:bg-gray-800 rounded-xl shadow p-5 h-fit sticky top-20 transition-colors duration-200">
           <div className="text-center">
-            <img
-              src={
-                user.profile_photo
-                  ? user.profile_photo
-                  : "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
-              }
-              alt="Profile"
-              className="w-24 h-24 rounded-full mx-auto border-4 border-red-500 cursor-pointer object-cover"
-              onClick={() => navigate(`/profile/${user.id}`)}
-            />
+            {user.profile_photo ? (
+              <img
+                src={user.profile_photo}
+                alt="Profile"
+                className="w-24 h-24 rounded-full mx-auto cursor-pointer object-cover"
+                onClick={() => navigate(`/profile/${user.id}`)}
+              />
+            ) : (
+              <div
+                className="w-24 h-24 rounded-full mx-auto cursor-pointer bg-red-600 dark:bg-red-400 flex items-center justify-center text-white text-3xl font-bold"
+                onClick={() => navigate(`/profile/${user.id}`)}
+              >
+                {user.name?.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
             <h2
               className="text-xl font-semibold mt-3 cursor-pointer hover:text-red-600 dark:text-white dark:hover:text-red-400 transition-colors duration-200"
               onClick={() => navigate(`/profile/${user.id}`)}
@@ -351,7 +385,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Feed Section */}
+        {}
         <div className="w-full lg:w-2/4 flex flex-col gap-5">
           <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow transition-colors duration-200">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">Start a Post</h3>
@@ -407,21 +441,37 @@ export default function Dashboard() {
           ) : (
             posts.map((post) => (
               <div key={post.id} className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow transition-colors duration-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src={
-                      post.author?.profile_photo ||
-                      "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
-                    }
-                    alt={post.author?.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-white">{post.author?.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(post.createdAt).toLocaleString()}
-                    </p>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={
+                        post.author?.profile_photo ||
+                        "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
+                      }
+                      alt={post.author?.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-800 dark:text-white">{post.author?.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(post.createdAt).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
+                  {user && post.author?.id === user.id && (
+                    <button
+                      onClick={() => handleDeletePost(post.id)}
+                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                      title="Delete post"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 <p className="text-gray-700 dark:text-gray-300 mb-3 whitespace-pre-line">{post.content}</p>
@@ -507,7 +557,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right Sidebar */}
+        {}
         <div className="w-full lg:w-1/4 space-y-5">
           <MessagesWidget onOpenPopup={() => setShowMessagesPopup(true)} />
 

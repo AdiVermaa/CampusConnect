@@ -78,7 +78,6 @@ export default function Profile() {
       const data = res.data;
       if (res.status === 200) {
         setMessage("Connected successfully!");
-        // Refresh profile to update connection status
         const profileRes = await API.get(`/profile/${userId}`);
         setProfile(profileRes.data);
       } else {
@@ -92,30 +91,25 @@ export default function Profile() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         setMessage("Please select an image file");
         return;
       }
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setMessage("Image size should be less than 5MB");
         return;
       }
 
-      // Compress and resize image before converting to base64
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
-          // Create canvas to resize image
           const canvas = document.createElement("canvas");
           const MAX_WIDTH = 800;
           const MAX_HEIGHT = 800;
           let width = img.width;
           let height = img.height;
 
-          // Calculate new dimensions
           if (width > height) {
             if (width > MAX_WIDTH) {
               height = (height * MAX_WIDTH) / width;
@@ -131,11 +125,9 @@ export default function Profile() {
           canvas.width = width;
           canvas.height = height;
 
-          // Draw and compress
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Convert to base64 with compression (quality: 0.8)
           const base64String = canvas.toDataURL("image/jpeg", 0.8);
           setFormData({ ...formData, profile_photo: base64String });
           setPhotoPreview(base64String);
@@ -153,7 +145,6 @@ export default function Profile() {
       if (res.status === 200) {
         setMessage("Profile updated successfully!");
         setIsEditing(false);
-        // Refresh profile
         const profileRes = await API.get(`/profile/${userId}`);
         const profileData = profileRes.data;
         setProfile(profileData);
@@ -206,7 +197,6 @@ export default function Profile() {
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-200">
-      {/* Navbar */}
       <nav className="bg-white dark:bg-gray-800 shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10 transition-colors duration-200">
         <h1
           className="text-2xl font-bold text-red-600 cursor-pointer"
@@ -223,22 +213,25 @@ export default function Profile() {
       </nav>
 
       <div className="max-w-4xl mx-auto p-6">
-        {/* Profile Header */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-8 mb-6 transition-colors duration-200">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-6">
               <div className="relative">
-                <img
-                  src={
-                    isEditing && photoPreview
-                      ? photoPreview
-                      : profile.profile_photo
-                        ? profile.profile_photo
-                        : "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
-                  }
-                  alt="Profile"
-                  className="w-32 h-32 rounded-full border-4 border-red-500 object-cover"
-                />
+                {(isEditing && photoPreview) || profile.profile_photo ? (
+                  <img
+                    src={
+                      isEditing && photoPreview
+                        ? photoPreview
+                        : profile.profile_photo
+                    }
+                    alt="Profile"
+                    className="w-32 h-32 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-full bg-red-600 dark:bg-red-400 flex items-center justify-center text-white text-4xl font-bold">
+                    {profile.name?.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
                 {isEditing && profile.is_own_profile && (
                   <label className="absolute bottom-0 right-0 bg-red-600 text-white rounded-full p-2 cursor-pointer hover:bg-red-700 transition shadow-lg">
                     <svg
@@ -313,7 +306,6 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Bio Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 transition-colors duration-200">
           <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">About</h3>
           {isEditing ? (
@@ -329,7 +321,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Links Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 transition-colors duration-200">
           <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Links</h3>
           <div className="space-y-4">
@@ -458,7 +449,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Danger Zone */}
         {profile.is_own_profile && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 border border-red-200 dark:border-red-900 transition-colors duration-200">
             <h3 className="text-xl font-semibold text-red-600 mb-2">
@@ -478,7 +468,6 @@ export default function Profile() {
         )}
       </div>
 
-      {/* Connections Modal */}
       {showConnectionsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowConnectionsModal(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
@@ -508,11 +497,17 @@ export default function Profile() {
                       navigate(`/profile/${conn.user.id}`);
                       setShowConnectionsModal(false);
                     }}>
-                      <img
-                        src={conn.user.profile_photo || "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"}
-                        alt={conn.user.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
+                      {conn.user.profile_photo ? (
+                        <img
+                          src={conn.user.profile_photo}
+                          alt={conn.user.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-red-600 dark:bg-red-400 flex items-center justify-center text-white text-sm font-bold">
+                          {conn.user.name?.charAt(0).toUpperCase() || "?"}
+                        </div>
+                      )}
                       <div>
                         <h4 className="font-medium text-gray-800 dark:text-white">{conn.user.name}</h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{conn.user.department || "Student"}</p>
@@ -528,4 +523,3 @@ export default function Profile() {
     </div>
   );
 }
-

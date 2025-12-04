@@ -135,7 +135,6 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-// Connect to database before starting server
 connectDB().then(() => {
   httpServer.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);

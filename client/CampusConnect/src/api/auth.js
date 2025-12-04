@@ -1,7 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "../config";
 
-// In-memory access token storage
 let accessToken = null;
 let refreshToken = null;
 
@@ -21,7 +20,6 @@ export const clearAccessToken = () => {
 export const getAccessToken = () => accessToken;
 export const getRefreshToken = () => refreshToken;
 
-// If a request fails with 401, try to refresh the access token once
 let isRefreshing = false;
 let pendingRequests = [];
 
@@ -118,6 +116,7 @@ export const PostsAPI = createApiClient("/api/posts");
 export const ChatAPI = createApiClient("/api/chat");
 export const ConnectionsAPI = createApiClient("/api/connections");
 export const EventsAPI = createApiClient("/api/events");
+export const AdminAPI = createApiClient("/api/admin");
 
 export const signup = (data) => API.post("/signup", data);
 export const login = (data) => API.post("/login", data);

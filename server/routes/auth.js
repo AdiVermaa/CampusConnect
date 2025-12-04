@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import Student from "../models/Student.js";
 import Connection from "../models/Connection.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ const cookieOptions = {
   secure: isProd,
   sameSite: isProd ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000,
-  ...(isProd && { partitioned: true }), // Required for cross-site cookies in Chrome
+  ...(isProd && { partitioned: true }), 
 };
 
 const ensureJwtSecrets = () => {
@@ -39,6 +40,7 @@ const sanitizeUser = (userDoc) => ({
   leetcode_link: userDoc.leetcode_link || "",
   bio: userDoc.bio || "",
   profile_photo: userDoc.profile_photo || null,
+  isAdmin: userDoc.isAdmin || false,
 });
 
 function extractYearFromEmail(email) {
@@ -185,12 +187,37 @@ router.post("/login", async (req, res) => {
 
     if (!user) {
       console.log("⚠️ User not found:", email);
+      
+      await logActivity({
+        userId: null,
+        action: "login_failed",
+        details: { email, reason: "User not found" },
+        req,
+      }).catch(() => { });
       return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.suspended) {
+      console.log("⚠️ Suspended account login attempt:", email);
+      await logActivity({
+        userId: user._id.toString(),
+        action: "login_failed",
+        details: { email, reason: "Account suspended" },
+        req,
+      }).catch(() => { });
+      return res.status(403).json({ error: "Your account has been suspended. Please contact support." });
     }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       console.log("⚠️ Invalid password for:", email);
+      
+      await logActivity({
+        userId: user._id.toString(),
+        action: "login_failed",
+        details: { email, reason: "Invalid password" },
+        req,
+      }).catch(() => { });
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
@@ -205,6 +232,13 @@ router.post("/login", async (req, res) => {
     user.refresh_token = refreshToken;
     await user.save();
 
+    await logActivity({
+      userId: user._id.toString(),
+      action: "login_success",
+      details: { email },
+      req,
+    }).catch(() => { });
+
     console.log("✅ Login successful for:", email);
 
     res
@@ -212,7 +246,7 @@ router.post("/login", async (req, res) => {
       .json({
         message: "Login successful",
         accessToken,
-        refreshToken, // Also send in response for cross-domain support
+        refreshToken, 
       });
   } catch (error) {
     console.error("❌ Login failed:", error?.message || error);
@@ -221,7 +255,7 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/refresh", async (req, res) => {
-  // Try to get refresh token from cookie first, then from Authorization header
+  
   let refreshToken = req.cookies?.refreshToken;
 
   if (!refreshToken) {
@@ -239,8 +273,6 @@ router.post("/refresh", async (req, res) => {
     ensureJwtSecrets();
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-    // If the token came from the old SQL-based system, its id will not be
-    // a valid Mongo ObjectId – treat it as invalid and clear the cookie.
     if (!isValidObjectId(decoded.id)) {
       return res
         .clearCookie("refreshToken", { ...cookieOptions, maxAge: 0 })
@@ -378,12 +410,21 @@ router.get("/search", async (req, res) => {
 
   try {
     ensureJwtSecrets();
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const currentUser = await User.findById(decoded.id).lean();
+    const canSeeHidden = currentUser?.email === "aditya.verma2024@nst.rishihood.edu.in";
 
     const regex = new RegExp(query.trim(), "i");
-    const results = await User.find({
+    const searchFilter = {
       $or: [{ name: regex }, { email: regex }],
-    })
+    };
+
+    if (!canSeeHidden) {
+      searchFilter.isHidden = { $ne: true };
+    }
+
+    const results = await User.find(searchFilter)
       .limit(10)
       .sort({ name: 1 })
       .select("name email")

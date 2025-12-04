@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { signup } from "../api/auth";
-import { useNavigate, Link } from "react-router-dom"; // 👈 Add this import
+import { useNavigate, Link } from "react-router-dom"; 
 
 export default function SignupForm() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [message, setMessage] = useState("");
-  const navigate = useNavigate(); // 👈 Initialize navigation
+  const navigate = useNavigate(); 
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -17,7 +17,6 @@ export default function SignupForm() {
       const res = await signup(form);
       setMessage(res.data.message);
 
-      // 👇 If signup is successful, redirect to login
       if (res.data.message.includes("successful")) {
         setTimeout(() => navigate("/login"), 1500);
       }
@@ -25,7 +24,6 @@ export default function SignupForm() {
       const error = err.response?.data?.error || "Something went wrong";
       setMessage(error);
 
-      // 👇 If user already registered, redirect to login automatically
       if (error.includes("already registered")) {
         setTimeout(() => navigate("/login"), 1500);
       }
@@ -61,7 +59,7 @@ export default function SignupForm() {
         <button type="submit">Sign Up</button>
       </form>
 
-      {/* 👇 This part is new */}
+      {}
       <p style={{ marginTop: 10 }}>{message}</p>
       <p>
         Already have an account?{" "}

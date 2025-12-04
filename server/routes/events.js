@@ -12,7 +12,7 @@ const ensureJwtSecret = () => {
     }
 };
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
         return res.status(401).json({ error: "No token provided" });
@@ -22,7 +22,13 @@ const authenticate = (req, res, next) => {
         ensureJwtSecret();
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+
+        const user = await User.findById(decoded.id).select("isAdmin");
+        if (!user) {
+            return res.status(401).json({ error: "User not found" });
+        }
+
+        req.user = { ...decoded, isAdmin: user.isAdmin };
         next();
     } catch (error) {
         console.error("❌ Event auth failed:", error?.message || error);
@@ -61,10 +67,10 @@ const formatEvent = (eventDoc, currentUserId) => {
         status: eventDoc.status,
         createdAt: eventDoc.createdAt,
         updatedAt: eventDoc.updatedAt,
+        visibility: eventDoc.visibility || "public",
     };
 };
 
-// Get all events (with filters)
 router.get("/", authenticate, async (req, res) => {
     try {
         const { type, status, upcoming } = req.query;
@@ -82,6 +88,10 @@ router.get("/", authenticate, async (req, res) => {
             filter.date = { $gte: new Date() };
         }
 
+        if (!req.user.isAdmin) {
+            filter.visibility = "public";
+        }
+
         const events = await Event.find(filter)
             .sort({ date: 1 })
             .populate("organizer", "name email profile_photo");
@@ -95,7 +105,6 @@ router.get("/", authenticate, async (req, res) => {
     }
 });
 
-// Get single event by ID
 router.get("/:eventId", authenticate, async (req, res) => {
     try {
         const { eventId } = req.params;
@@ -120,7 +129,6 @@ router.get("/:eventId", authenticate, async (req, res) => {
     }
 });
 
-// Create new event
 router.post("/", authenticate, async (req, res) => {
     try {
         const {
@@ -135,6 +143,7 @@ router.post("/", authenticate, async (req, res) => {
             registrationLink,
             tags,
             maxAttendees,
+            visibility,
         } = req.body;
 
         if (!title || !description || !date) {
@@ -157,6 +166,7 @@ router.post("/", authenticate, async (req, res) => {
             tags: tags || [],
             maxAttendees: maxAttendees || null,
             status: "upcoming",
+            visibility: visibility || "public",
         });
 
         await event.populate("organizer", "name email profile_photo");
@@ -171,7 +181,6 @@ router.post("/", authenticate, async (req, res) => {
     }
 });
 
-// Update event
 router.put("/:eventId", authenticate, async (req, res) => {
     try {
         const { eventId } = req.params;
@@ -186,7 +195,6 @@ router.put("/:eventId", authenticate, async (req, res) => {
             return res.status(404).json({ error: "Event not found" });
         }
 
-        // Check if user is the organizer
         if (event.organizer.toString() !== req.user.id) {
             return res.status(403).json({ error: "Only organizer can update event" });
         }
@@ -204,6 +212,7 @@ router.put("/:eventId", authenticate, async (req, res) => {
             tags,
             maxAttendees,
             status,
+            visibility,
         } = req.body;
 
         if (title) event.title = title.trim();
@@ -219,6 +228,7 @@ router.put("/:eventId", authenticate, async (req, res) => {
         if (tags) event.tags = tags;
         if (maxAttendees !== undefined) event.maxAttendees = maxAttendees || null;
         if (status) event.status = status;
+        if (visibility) event.visibility = visibility;
 
         await event.save();
         await event.populate("organizer", "name email profile_photo");
@@ -233,7 +243,6 @@ router.put("/:eventId", authenticate, async (req, res) => {
     }
 });
 
-// Delete event
 router.delete("/:eventId", authenticate, async (req, res) => {
     try {
         const { eventId } = req.params;
@@ -248,7 +257,6 @@ router.delete("/:eventId", authenticate, async (req, res) => {
             return res.status(404).json({ error: "Event not found" });
         }
 
-        // Check if user is the organizer
         if (event.organizer.toString() !== req.user.id) {
             return res.status(403).json({ error: "Only organizer can delete event" });
         }
@@ -262,7 +270,6 @@ router.delete("/:eventId", authenticate, async (req, res) => {
     }
 });
 
-// Register for event (attend)
 router.post("/:eventId/register", authenticate, async (req, res) => {
     try {
         const { eventId } = req.params;
@@ -280,7 +287,6 @@ router.post("/:eventId/register", authenticate, async (req, res) => {
             return res.status(404).json({ error: "Event not found" });
         }
 
-        // Check if already registered
         const alreadyRegistered = event.attendees.some(
             (id) => id.toString() === req.user.id
         );
@@ -289,7 +295,6 @@ router.post("/:eventId/register", authenticate, async (req, res) => {
             return res.status(409).json({ error: "Already registered for this event" });
         }
 
-        // Check if event is full
         if (event.maxAttendees && event.attendees.length >= event.maxAttendees) {
             return res.status(400).json({ error: "Event is full" });
         }
@@ -307,7 +312,6 @@ router.post("/:eventId/register", authenticate, async (req, res) => {
     }
 });
 
-// Unregister from event
 router.delete("/:eventId/register", authenticate, async (req, res) => {
     try {
         const { eventId } = req.params;
@@ -325,7 +329,6 @@ router.delete("/:eventId/register", authenticate, async (req, res) => {
             return res.status(404).json({ error: "Event not found" });
         }
 
-        // Check if registered
         const isRegistered = event.attendees.some(
             (id) => id.toString() === req.user.id
         );

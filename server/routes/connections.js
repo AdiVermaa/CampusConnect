@@ -30,7 +30,6 @@ const authenticate = (req, res, next) => {
     }
 };
 
-// Get all connections for the current user
 router.get("/", authenticate, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -41,9 +40,8 @@ router.get("/", authenticate, async (req, res) => {
             .populate("user_id", "name email profile_photo bio")
             .populate("connected_user_id", "name email profile_photo bio");
 
-        // Format connections to always return the "other" user
         const formattedConnections = connections
-            .filter(conn => conn.user_id && conn.connected_user_id) // Filter out invalid connections
+            .filter(conn => conn.user_id && conn.connected_user_id) 
             .map((conn) => {
                 const isInitiator = conn.user_id._id.toString() === userId;
                 const otherUser = isInitiator ? conn.connected_user_id : conn.user_id;
@@ -68,7 +66,6 @@ router.get("/", authenticate, async (req, res) => {
     }
 });
 
-// Send connection request (follow a user)
 router.post("/:userId", authenticate, async (req, res) => {
     try {
         const currentUserId = req.user.id;
@@ -82,13 +79,11 @@ router.post("/:userId", authenticate, async (req, res) => {
             return res.status(400).json({ error: "Invalid user ID" });
         }
 
-        // Check if target user exists
         const targetUser = await User.findById(targetUserId);
         if (!targetUser) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        // Check if connection already exists (in either direction)
         const existingConnection = await Connection.findOne({
             $or: [
                 { user_id: currentUserId, connected_user_id: targetUserId },
@@ -100,7 +95,6 @@ router.post("/:userId", authenticate, async (req, res) => {
             return res.status(409).json({ error: "Connection already exists" });
         }
 
-        // Create new connection
         const connection = await Connection.create({
             user_id: currentUserId,
             connected_user_id: targetUserId,
@@ -131,7 +125,6 @@ router.post("/:userId", authenticate, async (req, res) => {
     }
 });
 
-// Remove connection (unfollow a user)
 router.delete("/:userId", authenticate, async (req, res) => {
     try {
         const currentUserId = req.user.id;
@@ -141,7 +134,6 @@ router.delete("/:userId", authenticate, async (req, res) => {
             return res.status(400).json({ error: "Invalid user ID" });
         }
 
-        // Find and delete connection (in either direction)
         const result = await Connection.findOneAndDelete({
             $or: [
                 { user_id: currentUserId, connected_user_id: targetUserId },
@@ -160,7 +152,6 @@ router.delete("/:userId", authenticate, async (req, res) => {
     }
 });
 
-// Get connection status with a specific user
 router.get("/status/:userId", authenticate, async (req, res) => {
     try {
         const currentUserId = req.user.id;
@@ -187,7 +178,6 @@ router.get("/status/:userId", authenticate, async (req, res) => {
     }
 });
 
-// Get connections for a specific user
 router.get("/user/:userId", authenticate, async (req, res) => {
     try {
         const targetUserId = req.params.userId;
@@ -202,7 +192,6 @@ router.get("/user/:userId", authenticate, async (req, res) => {
             .populate("user_id", "name email profile_photo bio department")
             .populate("connected_user_id", "name email profile_photo bio department");
 
-        // Format connections to always return the "other" user
         const formattedConnections = connections
             .filter(conn => conn.user_id && conn.connected_user_id)
             .map((conn) => {

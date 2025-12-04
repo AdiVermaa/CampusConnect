@@ -141,4 +141,3 @@ export const normalizeParticipantIds = (participantIds = [], currentUserId) => {
     (id) => new mongoose.Types.ObjectId(id)
   );
 };
-

@@ -13,8 +13,5 @@ const studentSchema = new mongoose.Schema(
   }
 );
 
-
-
 export default mongoose.models.Student ||
   mongoose.model("Student", studentSchema);
-
