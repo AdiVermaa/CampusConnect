@@ -197,7 +197,7 @@ export default function Profile() {
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-200">
-      <nav className="bg-white dark:bg-gray-800 shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10 transition-colors duration-200">
+      <nav className="bg-white dark:bg-gray-800 shadow px-4 sm:px-6 py-3 flex justify-between items-center sticky top-0 z-10 transition-colors duration-200">
         <h1
           className="text-2xl font-bold text-red-600 cursor-pointer"
           onClick={() => navigate("/dashboard")}
@@ -212,10 +212,10 @@ export default function Profile() {
         </button>
       </nav>
 
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-8 mb-6 transition-colors duration-200">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 sm:p-8 mb-6 transition-colors duration-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 w-full">
               <div className="relative">
                 {(isEditing && photoPreview) || profile.profile_photo ? (
                   <img
@@ -255,7 +255,7 @@ export default function Profile() {
                   </label>
                 )}
               </div>
-              <div>
+              <div className="text-center sm:text-left">
                 {isEditing && profile.is_own_profile ? (
                   <input
                     type="text"
@@ -278,25 +278,27 @@ export default function Profile() {
                 </p>
               </div>
             </div>
-            {profile.is_own_profile ? (
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
-              >
-                {isEditing ? "Cancel" : "Edit Profile"}
-              </button>
-            ) : (
-              <button
-                onClick={handleConnect}
-                disabled={profile.is_connected}
-                className={`px-6 py-2 rounded-lg transition ${profile.is_connected
-                  ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-                  : "bg-red-600 text-white hover:bg-red-700"
-                  }`}
-              >
-                {profile.is_connected ? "Connected" : "Connect"}
-              </button>
-            )}
+            <div className="w-full sm:w-auto flex justify-center sm:justify-end mt-4 sm:mt-0">
+              {profile.is_own_profile ? (
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition w-full sm:w-auto"
+                >
+                  {isEditing ? "Cancel" : "Edit Profile"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConnect}
+                  disabled={profile.is_connected}
+                  className={`px-6 py-2 rounded-lg transition w-full sm:w-auto ${profile.is_connected
+                    ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                    : "bg-red-600 text-white hover:bg-red-700"
+                    }`}
+                >
+                  {profile.is_connected ? "Connected" : "Connect"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

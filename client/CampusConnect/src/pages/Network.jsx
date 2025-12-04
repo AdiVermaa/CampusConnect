@@ -153,28 +153,30 @@ export default function Network() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-200">
-            {}
+            { }
             <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-sm sticky top-0 z-10 transition-colors duration-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-4">
-                            <button
-                                onClick={() => navigate("/dashboard")}
-                                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition"
-                            >
-                                ← Back to Dashboard
-                            </button>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                                My Network
-                            </h1>
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
+                        <div className="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-start">
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={() => navigate("/dashboard")}
+                                    className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition"
+                                >
+                                    ← Back
+                                </button>
+                                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent truncate">
+                                    My Network
+                                </h1>
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
 
-            {}
+            { }
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="flex space-x-2 mb-6">
+                <div className="flex flex-wrap gap-2 mb-6">
                     <button
                         onClick={() => setActiveTab("connections")}
                         className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${activeTab === "connections"
@@ -195,7 +197,7 @@ export default function Network() {
                     </button>
                 </div>
 
-                {}
+                { }
                 {activeTab === "suggestions" && (
                     <form onSubmit={handleSearch} className="mb-6">
                         <div className="relative max-w-2xl">
@@ -223,7 +225,7 @@ export default function Network() {
                     </form>
                 )}
 
-                {}
+                { }
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>

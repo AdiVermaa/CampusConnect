@@ -129,24 +129,26 @@ export default function Events() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-200">
-            {}
+            { }
             <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-sm sticky top-0 z-10 transition-colors duration-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-4">
-                            <button
-                                onClick={() => navigate("/dashboard")}
-                                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition"
-                            >
-                                ← Back to Dashboard
-                            </button>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                                Events & Opportunities
-                            </h1>
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
+                        <div className="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-start">
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={() => navigate("/dashboard")}
+                                    className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition"
+                                >
+                                    ← Back
+                                </button>
+                                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent truncate">
+                                    Events
+                                </h1>
+                            </div>
                         </div>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="px-6 py-2 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-full hover:shadow-lg transition transform hover:scale-105"
+                            className="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-full hover:shadow-lg transition transform hover:scale-105"
                         >
                             + Create Event
                         </button>
@@ -154,9 +156,9 @@ export default function Events() {
                 </div>
             </header>
 
-            {}
+            { }
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => setFilter("upcoming")}
                         className={`px-4 py-2 rounded-full transition ${filter === "upcoming"
@@ -178,7 +180,7 @@ export default function Events() {
                 </div>
             </div>
 
-            {}
+            { }
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
                 {loading ? (
                     <div className="text-center py-12">
@@ -336,7 +338,7 @@ export default function Events() {
                 )}
             </div>
 
-            {}
+            { }
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-200">

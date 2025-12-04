@@ -28,7 +28,7 @@ const Messages = () => {
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        
+
         if (!user.id) {
             user.id = user._id || user.userId;
         }
@@ -52,16 +52,16 @@ const Messages = () => {
 
         socketRef.current.on('message:new', (data) => {
             console.log('📨 New message received:', data);
-            
+
             if (selectedConversationRef.current?.id === data.conversationId) {
                 setMessages(prev => {
-                    
+
                     const exists = prev.some(m => m.id === data.message.id);
                     if (exists) return prev;
                     return [...prev, data.message];
                 });
             }
-            
+
             fetchConversations();
         });
 
@@ -89,11 +89,11 @@ const Messages = () => {
     useEffect(() => {
         if (selectedConversation) {
             fetchMessages(selectedConversation.id);
-            
+
             if (socketRef.current) {
                 socketRef.current.emit('join:conversation', selectedConversation.id);
             }
-            
+
             markAsRead(selectedConversation.id);
         }
     }, [selectedConversation]);
@@ -218,7 +218,7 @@ const Messages = () => {
             const data = await response.json();
 
             if (data.conversation) {
-                
+
                 const exists = conversations.find(c => c.id === data.conversation.id);
                 if (!exists) {
                     setConversations(prev => [data.conversation, ...prev]);
@@ -250,9 +250,13 @@ const Messages = () => {
         }
     };
 
+    const handleBackToConversations = () => {
+        setSelectedConversation(null);
+    };
+
     return (
         <>
-            {}
+            { }
             <nav className="bg-white shadow px-6 py-3 flex justify-between items-center sticky top-0 z-10">
                 <h1
                     className="text-2xl font-bold text-red-600 cursor-pointer"
@@ -268,10 +272,10 @@ const Messages = () => {
                 </button>
             </nav>
 
-            <div className="messages-container"
+            <div className={`messages-container ${selectedConversation ? 'mobile-chat-active' : ''}`}
                 style={{ height: 'calc(100vh - 60px)' }}
             >
-                {}
+                { }
                 <div className="messages-sidebar">
                     <div className="messages-header">
                         <div className="user-info">
@@ -344,12 +348,22 @@ const Messages = () => {
                     </div>
                 </div>
 
-                {}
+                { }
                 <div className="messages-chat">
                     {selectedConversation ? (
                         <>
                             <div className="chat-header">
                                 <div className="chat-user-info">
+                                    <button
+                                        className="mobile-back-btn"
+                                        onClick={handleBackToConversations}
+                                        style={{ display: 'none', marginRight: '10px', background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                                            <polyline points="12 19 5 12 12 5"></polyline>
+                                        </svg>
+                                    </button>
                                     <div className="chat-avatar">
                                         {selectedConversation.participants[0]?.profile_photo ? (
                                             <img src={selectedConversation.participants[0].profile_photo} alt={selectedConversation.name} />
@@ -454,7 +468,7 @@ const Messages = () => {
                     )}
                 </div>
 
-                {}
+                { }
                 {
                     showNewMessageModal && (
                         <div className="modal-overlay" onClick={() => setShowNewMessageModal(false)}>
