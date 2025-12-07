@@ -433,14 +433,17 @@ export default function Dashboard() {
               <div key={post.id} className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow transition-colors duration-200">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={
-                        post.author?.profile_photo ||
-                        "https://rishihood.edu.in/wp-content/uploads/2023/09/student-profile-placeholder.png"
-                      }
-                      alt={post.author?.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
+                    {post.author?.profile_photo ? (
+                      <img
+                        src={post.author.profile_photo}
+                        alt={post.author?.name}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-red-600 dark:bg-red-400 flex items-center justify-center text-white text-lg font-bold">
+                        {post.author?.name?.charAt(0).toUpperCase() || "?"}
+                      </div>
+                    )}
                     <div>
                       <p className="font-semibold text-gray-800 dark:text-white">{post.author?.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
