@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 import { getAccessToken } from '../api/auth';
+import { useSocket } from '../contexts/SocketContext';
 import './MessagesPopup.css';
 
 const MessagesPopup = ({ isOpen, onClose }) => {
+    const { on } = useSocket();
     const [conversations, setConversations] = useState([]);
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [currentUser, setCurrentUser] = useState(null);
-    const socketRef = useRef(null);
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -18,12 +18,7 @@ const MessagesPopup = ({ isOpen, onClose }) => {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             setCurrentUser(user);
 
-            const token = getAccessToken();
-            socketRef.current = io(API_BASE_URL, {
-                auth: { token }
-            });
-
-            socketRef.current.on('message:new', (data) => {
+            const unsubscribe = on('message:new', (data) => {
                 if (selectedConversation?.id === data.conversationId) {
                     setMessages(prev => [...prev, data.message]);
                 }
@@ -31,14 +26,12 @@ const MessagesPopup = ({ isOpen, onClose }) => {
             });
 
             fetchConversations();
-        }
 
-        return () => {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-            }
-        };
-    }, [isOpen]);
+            return () => {
+                if (unsubscribe) unsubscribe();
+            };
+        }
+    }, [isOpen, on, selectedConversation]);
 
     useEffect(() => {
         if (selectedConversation) {

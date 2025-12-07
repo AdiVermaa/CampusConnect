@@ -6,7 +6,7 @@ import { setAccessToken, setRefreshToken } from "../api/auth";
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -16,13 +16,13 @@ export default function Login() {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", 
+        credentials: "include",
         body: JSON.stringify(form),
       });
       const data = await res.json();
 
       if (res.ok) {
-        
+
         setAccessToken(data.accessToken);
         setRefreshToken(data.refreshToken);
 
@@ -38,6 +38,8 @@ export default function Login() {
         } catch (err) {
           console.error('Failed to decode token:', err);
         }
+
+        window.dispatchEvent(new Event('tokenUpdated'));
 
         setMessage("Login successful! Redirecting...");
         navigate("/dashboard", { replace: true });

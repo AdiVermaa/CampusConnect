@@ -21,7 +21,7 @@ export default function Admin() {
     const [logsPagination, setLogsPagination] = useState({ page: 1, totalPages: 1 });
     const [modalConfig, setModalConfig] = useState({
         isOpen: false,
-        type: null, // 'suspend_user', 'delete_user', 'delete_post', 'delete_event'
+        type: null,
         targetId: null,
         title: "",
         message: "",

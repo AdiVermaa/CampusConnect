@@ -10,9 +10,11 @@ import Network from "./pages/Network";
 import Admin from "./pages/Admin";
 import { setAccessToken, refresh, getAccessToken } from "./api/auth";
 import { ThemeProvider } from "./context/ThemeContext";
+import { SocketProvider } from "./contexts/SocketContext";
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -20,11 +22,32 @@ export default function App() {
         const res = await refresh();
         if (res.data?.accessToken) {
           setAccessToken(res.data.accessToken);
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
         }
       } catch {
+        setIsAuthenticated(false);
       }
       setAuthChecked(true);
     })();
+  }, []);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = getAccessToken();
+      setIsAuthenticated(!!token);
+    };
+
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+
+    window.addEventListener('tokenUpdated', checkAuth);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      window.removeEventListener('tokenUpdated', checkAuth);
+    };
   }, []);
 
   if (!authChecked) {
@@ -37,26 +60,35 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <Router>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              getAccessToken()
-                ? <Navigate to="/dashboard" replace />
-                : <Navigate to="/login" replace />
-            }
-          />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile/:userId" element={<Profile />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/network" element={<Network />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
-      </Router>
+      {isAuthenticated ? (
+        <SocketProvider>
+          <Router>
+            <Routes>
+              <Route
+                path="/"
+                element={<Navigate to="/dashboard" replace />}
+              />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile/:userId" element={<Profile />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/network" element={<Network />} />
+              <Route path="/admin" element={<Admin />} />
+            </Routes>
+          </Router>
+        </SocketProvider>
+      ) : (
+        <Router>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Router>
+      )}
     </ThemeProvider>
   );
 }

@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 import { getAccessToken } from '../api/auth';
+import { useSocket } from '../contexts/SocketContext';
 import './Messages.css';
 
 const Messages = () => {
     const navigate = useNavigate();
+    const { on, emit, isConnected } = useSocket();
     const [conversations, setConversations] = useState([]);
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -14,7 +15,6 @@ const Messages = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
-    const socketRef = useRef(null);
     const messagesEndRef = useRef(null);
     const [showNewMessageModal, setShowNewMessageModal] = useState(false);
     const [userSearchResults, setUserSearchResults] = useState([]);
@@ -41,21 +41,11 @@ const Messages = () => {
         });
         setCurrentUser(user);
 
-        const token = getAccessToken();
-        socketRef.current = io(API_BASE_URL, {
-            auth: { token }
-        });
-
-        socketRef.current.on('connect', () => {
-            console.log('✅ Connected to WebSocket');
-        });
-
-        socketRef.current.on('message:new', (data) => {
+        const unsubscribeNewMessage = on('message:new', (data) => {
             console.log('📨 New message received:', data);
 
             if (selectedConversationRef.current?.id === data.conversationId) {
                 setMessages(prev => {
-
                     const exists = prev.some(m => m.id === data.message.id);
                     if (exists) return prev;
                     return [...prev, data.message];
@@ -65,7 +55,7 @@ const Messages = () => {
             fetchConversations();
         });
 
-        socketRef.current.on('conversation:update', (data) => {
+        const unsubscribeConversationUpdate = on('conversation:update', (data) => {
             setConversations(prev => {
                 const index = prev.findIndex(c => c.id === data.conversation.id);
                 if (index !== -1) {
@@ -80,23 +70,20 @@ const Messages = () => {
         fetchConversations();
 
         return () => {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-            }
+            if (unsubscribeNewMessage) unsubscribeNewMessage();
+            if (unsubscribeConversationUpdate) unsubscribeConversationUpdate();
         };
-    }, []);
+    }, [on]);
 
     useEffect(() => {
         if (selectedConversation) {
             fetchMessages(selectedConversation.id);
 
-            if (socketRef.current) {
-                socketRef.current.emit('join:conversation', selectedConversation.id);
-            }
+            emit('join:conversation', selectedConversation.id);
 
             markAsRead(selectedConversation.id);
         }
-    }, [selectedConversation]);
+    }, [selectedConversation, emit]);
 
     useEffect(() => {
         scrollToBottom();
