@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminAPI, API, getAccessToken, clearAccessToken } from "../api/auth";
 import ConfirmationModal from "../components/ConfirmationModal";
+import Toast from "../components/Toast";
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -27,6 +28,15 @@ export default function Admin() {
         message: "",
         isDanger: false
     });
+    const [toast, setToast] = useState({
+        isOpen: false,
+        message: "",
+        type: "success"
+    });
+
+    const showToast = (message, type = "success") => {
+        setToast({ isOpen: true, message, type });
+    };
 
     useEffect(() => {
         const token = getAccessToken();
@@ -58,7 +68,7 @@ export default function Admin() {
         } catch (error) {
             console.error("Error fetching data:", error);
             if (error.response?.status === 403) {
-                alert("Admin access required");
+                showToast("Admin access required", "error");
                 navigate("/dashboard");
             }
         } finally {
@@ -123,10 +133,10 @@ export default function Admin() {
     const handleUnsuspendUser = async (userId) => {
         try {
             await AdminAPI.post(`/users/${userId}/unsuspend`);
-            alert("User unsuspended successfully");
+            showToast("User unsuspended successfully");
             fetchUsers(usersPagination.page);
         } catch (error) {
-            alert(error.response?.data?.error || "Failed to unsuspend user");
+            showToast(error.response?.data?.error || "Failed to unsuspend user", "error");
         }
     };
 
@@ -150,11 +160,11 @@ export default function Admin() {
                 bio: editingUser.bio,
                 isAdmin: editingUser.isAdmin,
             });
-            alert("User updated successfully");
+            showToast("User updated successfully");
             setEditingUser(null);
             fetchUsers(usersPagination.page);
         } catch (error) {
-            alert(error.response?.data?.error || "Failed to update user");
+            showToast(error.response?.data?.error || "Failed to update user", "error");
         }
     };
 
@@ -198,7 +208,7 @@ export default function Admin() {
             }
         } catch (error) {
             console.error("Action failed:", error);
-            alert(error.response?.data?.error || "Action failed");
+            showToast(error.response?.data?.error || "Action failed", "error");
         }
         setModalConfig({ ...modalConfig, isOpen: false });
     };
@@ -704,6 +714,13 @@ export default function Admin() {
                 title={modalConfig.title}
                 message={modalConfig.message}
                 isDanger={modalConfig.isDanger}
+            />
+
+            <Toast
+                isOpen={toast.isOpen}
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast({ ...toast, isOpen: false })}
             />
         </div>
     );
