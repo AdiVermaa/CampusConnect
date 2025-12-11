@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EventsAPI, getAccessToken, clearAccessToken } from "../api/auth";
+import cacheManager, { CACHE_KEYS } from "../utils/cacheManager";
 
 export default function Events() {
     const navigate = useNavigate();
@@ -32,10 +33,21 @@ export default function Events() {
 
     const fetchEvents = async () => {
         try {
+            const cacheKey = `${CACHE_KEYS.EVENTS_LIST}_${filter}`;
+            const cached = cacheManager.get(cacheKey);
+            if (cached) {
+                setEvents(cached);
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
             const params = filter === "upcoming" ? { upcoming: "true" } : {};
             const res = await EventsAPI.get("/", { params });
-            setEvents(res.data.events || []);
+            const fetchedEvents = res.data.events || [];
+            
+            setEvents(fetchedEvents);
+            cacheManager.set(cacheKey, fetchedEvents);
         } catch (error) {
             console.error("Failed to fetch events:", error);
             if (error.response?.status === 401 || error.response?.status === 403) {
@@ -71,6 +83,7 @@ export default function Events() {
                 maxAttendees: "",
                 visibility: "public",
             });
+            cacheManager.invalidatePattern(CACHE_KEYS.EVENTS_LIST);
             fetchEvents();
         } catch (error) {
             console.error("Failed to create event:", error);
@@ -85,6 +98,7 @@ export default function Events() {
             } else {
                 await EventsAPI.post(`/${eventId}/register`);
             }
+            cacheManager.invalidatePattern(CACHE_KEYS.EVENTS_LIST);
             fetchEvents();
         } catch (error) {
             console.error("Failed to register:", error);
@@ -96,6 +110,7 @@ export default function Events() {
         if (!confirm("Are you sure you want to delete this event?")) return;
         try {
             await EventsAPI.delete(`/${eventId}`);
+            cacheManager.invalidatePattern(CACHE_KEYS.EVENTS_LIST);
             fetchEvents();
         } catch (error) {
             console.error("Failed to delete event:", error);

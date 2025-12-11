@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import { getAccessToken } from '../api/auth';
 import { useSocket } from '../contexts/SocketContext';
+import cacheManager, { CACHE_KEYS } from '../utils/cacheManager';
 import './Messages.css';
 
 const Messages = () => {
@@ -58,12 +59,16 @@ const Messages = () => {
         const unsubscribeConversationUpdate = on('conversation:update', (data) => {
             setConversations(prev => {
                 const index = prev.findIndex(c => c.id === data.conversation.id);
+                let updatedConversations;
                 if (index !== -1) {
                     const updated = [...prev];
                     updated[index] = data.conversation;
-                    return updated.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+                    updatedConversations = updated.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+                } else {
+                    updatedConversations = [data.conversation, ...prev];
                 }
-                return [data.conversation, ...prev];
+                cacheManager.set(CACHE_KEYS.CONVERSATIONS, updatedConversations);
+                return updatedConversations;
             });
         });
 
@@ -95,6 +100,13 @@ const Messages = () => {
 
     const fetchConversations = async () => {
         try {
+            const cachedConversations = cacheManager.get(CACHE_KEYS.CONVERSATIONS);
+            if (cachedConversations) {
+                setConversations(cachedConversations);
+                setLoading(false);
+                return;
+            }
+
             const token = getAccessToken();
             const response = await fetch(`${API_BASE_URL}/api/chat/conversations`, {
                 headers: {
@@ -102,7 +114,10 @@ const Messages = () => {
                 }
             });
             const data = await response.json();
-            setConversations(data.conversations || []);
+            const fetchedConversations = data.conversations || [];
+            
+            setConversations(fetchedConversations);
+            cacheManager.set(CACHE_KEYS.CONVERSATIONS, fetchedConversations);
             setLoading(false);
         } catch (error) {
             console.error('Error fetching conversations:', error);

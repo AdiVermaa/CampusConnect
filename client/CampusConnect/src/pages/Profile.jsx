@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import { API, ConnectionsAPI, getAccessToken, clearAccessToken } from "../api/auth";
+import cacheManager, { CACHE_KEYS } from "../utils/cacheManager";
 
 export default function Profile() {
   const { userId } = useParams();
@@ -46,6 +47,25 @@ export default function Profile() {
 
     const fetchProfile = async () => {
       try {
+        const cacheKey = CACHE_KEYS.USER_DATA(userId);
+        const cachedProfile = cacheManager.get(cacheKey);
+        
+        if (cachedProfile) {
+          setProfile(cachedProfile);
+          setFormData({
+            name: cachedProfile.name || "",
+            portfolio_link: cachedProfile.portfolio_link || "",
+            linkedin_link: cachedProfile.linkedin_link || "",
+            github_link: cachedProfile.github_link || "",
+            leetcode_link: cachedProfile.leetcode_link || "",
+            bio: cachedProfile.bio || "",
+            profile_photo: cachedProfile.profile_photo || null,
+          });
+          setPhotoPreview(cachedProfile.profile_photo || null);
+          setIsLoading(false);
+          return;
+        }
+
         const res = await API.get(`/profile/${userId}`);
         const data = res.data;
         setProfile(data);
@@ -59,11 +79,14 @@ export default function Profile() {
           profile_photo: data.profile_photo || null,
         });
         setPhotoPreview(data.profile_photo || null);
+        cacheManager.set(cacheKey, data);
       } catch (err) {
         console.error(err);
         setMessage("Failed to load profile");
-        clearAccessToken();
-        navigate("/login");
+        if (err.response?.status === 401 || err.response?.status === 403) {
+            clearAccessToken();
+            navigate("/login");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -149,6 +172,11 @@ export default function Profile() {
         const profileData = profileRes.data;
         setProfile(profileData);
         setPhotoPreview(profileData.profile_photo || null);
+        cacheManager.set(CACHE_KEYS.USER_DATA(userId), profileData);
+        // Also update current user profile if it's the own profile
+        if (profile.is_own_profile) {
+            cacheManager.set(CACHE_KEYS.USER_PROFILE, profileData);
+        }
       } else {
         setMessage(data.error || "Failed to update profile");
       }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API, ConnectionsAPI, getAccessToken, clearAccessToken } from "../api/auth";
+import cacheManager, { CACHE_KEYS } from "../utils/cacheManager";
 
 export default function Network() {
     const navigate = useNavigate();
@@ -20,16 +21,32 @@ export default function Network() {
 
     const fetchData = async () => {
         try {
+            const cachedConnections = cacheManager.get(CACHE_KEYS.USER_CONNECTIONS);
+            if (cachedConnections) {
+                 setConnections(cachedConnections);
+                 
+                 const searchRes = await API.get("/search", { params: { query: "" } });
+                 const connectedIds = new Set(cachedConnections.map((c) => c.user.id));
+                 const filtered = (searchRes.data.users || []).filter(
+                    (user) => !connectedIds.has(user.id)
+                 );
+                 setSuggestions(filtered);
+                 setLoading(false);
+                 return;
+            }
+
             setLoading(true);
             const [connectionsRes, searchRes] = await Promise.all([
                 ConnectionsAPI.get("/"),
                 API.get("/search", { params: { query: "" } }),
             ]);
 
-            setConnections(connectionsRes.data.connections || []);
+            const fetchedConnections = connectionsRes.data.connections || [];
+            setConnections(fetchedConnections);
+            cacheManager.set(CACHE_KEYS.USER_CONNECTIONS, fetchedConnections);
 
             const connectedIds = new Set(
-                connectionsRes.data.connections.map((c) => c.user.id)
+                fetchedConnections.map((c) => c.user.id)
             );
             const filtered = (searchRes.data.users || []).filter(
                 (user) => !connectedIds.has(user.id)
@@ -49,6 +66,8 @@ export default function Network() {
     const handleConnect = async (userId) => {
         try {
             await ConnectionsAPI.post(`/${userId}`);
+            await ConnectionsAPI.post(`/${userId}`);
+            cacheManager.invalidatePattern(CACHE_KEYS.USER_CONNECTIONS);
             fetchData();
         } catch (error) {
             console.error("Failed to connect:", error);
@@ -60,6 +79,8 @@ export default function Network() {
         if (!confirm("Are you sure you want to remove this connection?")) return;
         try {
             await ConnectionsAPI.delete(`/${userId}`);
+            await ConnectionsAPI.delete(`/${userId}`);
+            cacheManager.invalidatePattern(CACHE_KEYS.USER_CONNECTIONS);
             fetchData();
         } catch (error) {
             console.error("Failed to disconnect:", error);

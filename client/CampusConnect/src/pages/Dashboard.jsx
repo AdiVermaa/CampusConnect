@@ -6,6 +6,7 @@ import { API, PostsAPI, ChatAPI, getAccessToken, clearAccessToken } from "../api
 import MessagesWidget from "../components/MessagesWidget";
 import MessagesPopup from "../components/MessagesPopup";
 import ConfirmationModal from "../components/ConfirmationModal";
+import cacheManager, { CACHE_KEYS } from "../utils/cacheManager";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -65,16 +66,54 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        const [userRes, postsRes] = await Promise.all([
-          API.get("/me"),
-          PostsAPI.get("/feed"),
-        ]);
-        setUser(userRes.data);
-        setPosts(postsRes.data.posts || []);
+        const cachedUser = cacheManager.get(CACHE_KEYS.USER_PROFILE);
+        const cachedPosts = cacheManager.get(CACHE_KEYS.POSTS_FEED);
+        
+        let shouldFetchUser = !cachedUser;
+        let shouldFetchPosts = !cachedPosts;
+
+        if (cachedUser) {
+          setUser(cachedUser);
+        }
+        if (cachedPosts) {
+          setPosts(cachedPosts);
+        }
+
+        // If both are cached, we can skip fetching entirely or fetch in background
+        // To stop requests completely, we only fetch what's missing
+        if (!shouldFetchUser && !shouldFetchPosts) {
+            return; 
+        }
+
+        const promises = [];
+        if (shouldFetchUser) promises.push(API.get("/me"));
+        if (shouldFetchPosts) promises.push(PostsAPI.get("/feed"));
+
+        if (promises.length === 0) return;
+
+        const results = await Promise.all(promises);
+        
+        let resultIndex = 0;
+        if (shouldFetchUser) {
+            const userRes = results[resultIndex++];
+            setUser(userRes.data);
+            cacheManager.set(CACHE_KEYS.USER_PROFILE, userRes.data);
+        }
+        
+        if (shouldFetchPosts) {
+            const postsRes = results[resultIndex++];
+            setPosts(postsRes.data.posts || []);
+            cacheManager.set(CACHE_KEYS.POSTS_FEED, postsRes.data.posts || []);
+        }
+
       } catch (err) {
         console.error(err);
-        clearAccessToken();
-        navigate("/login");
+        // Only clear token if it's an auth error
+        if (err.response?.status === 401 || err.response?.status === 403) {
+            clearAccessToken();
+            cacheManager.clear();
+            navigate("/login");
+        }
       }
     };
     fetchData();

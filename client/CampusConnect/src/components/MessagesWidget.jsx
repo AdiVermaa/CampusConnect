@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import { getAccessToken, API } from '../api/auth';
+import cacheManager, { CACHE_KEYS } from '../utils/cacheManager';
 import './MessagesWidget.css';
 
 const MessagesWidget = ({ onOpenPopup }) => {
@@ -17,22 +18,65 @@ const MessagesWidget = ({ onOpenPopup }) => {
 
     const fetchData = async () => {
         try {
+            const cachedConversations = cacheManager.get(CACHE_KEYS.CONVERSATIONS);
+            const cachedUser = cacheManager.get(CACHE_KEYS.USER_PROFILE);
+            
+            let shouldFetchConversations = !cachedConversations;
+            let shouldFetchUser = !cachedUser;
+
+            if (cachedConversations) {
+                setConversations(cachedConversations.slice(0, 5));
+                const conversationsWithUnread = cachedConversations.filter(
+                    (conv) => (conv.unreadCount || 0) > 0
+                ).length;
+                setUnreadCount(conversationsWithUnread);
+            }
+
+            if (cachedUser) {
+                setCurrentUser(cachedUser);
+            }
+
+            if (!shouldFetchConversations && !shouldFetchUser) {
+                setLoading(false);
+                return;
+            }
+
             const token = getAccessToken();
-            const [convResponse, userResponse] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/chat/conversations`, {
+            const promises = [];
+            
+            if (shouldFetchConversations) {
+                promises.push(fetch(`${API_BASE_URL}/api/chat/conversations`, {
                     headers: { 'Authorization': `Bearer ${token}` }
-                }),
-                API.get('/me')
-            ]);
+                }));
+            }
+            
+            if (shouldFetchUser) {
+                promises.push(API.get('/me'));
+            }
 
-            const convData = await convResponse.json();
-            setConversations((convData.conversations || []).slice(0, 5));
-            setCurrentUser(userResponse.data);
+            const results = await Promise.all(promises);
+            let resultIndex = 0;
 
-            const conversationsWithUnread = (convData.conversations || []).filter(
-                (conv) => (conv.unreadCount || 0) > 0
-            ).length;
-            setUnreadCount(conversationsWithUnread);
+            if (shouldFetchConversations) {
+                const convResponse = results[resultIndex++];
+                const convData = await convResponse.json();
+                const fetchedConversations = convData.conversations || [];
+                
+                setConversations(fetchedConversations.slice(0, 5));
+                cacheManager.set(CACHE_KEYS.CONVERSATIONS, fetchedConversations);
+                
+                const conversationsWithUnread = fetchedConversations.filter(
+                    (conv) => (conv.unreadCount || 0) > 0
+                ).length;
+                setUnreadCount(conversationsWithUnread);
+            }
+            
+            if (shouldFetchUser) {
+                const userResponse = results[resultIndex++];
+                setCurrentUser(userResponse.data);
+                cacheManager.set(CACHE_KEYS.USER_PROFILE, userResponse.data);
+            }
+
             setLoading(false);
         } catch (error) {
             console.error('Error fetching data:', error);

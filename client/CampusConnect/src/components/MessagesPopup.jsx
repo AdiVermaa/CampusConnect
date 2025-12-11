@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../config';
 import { getAccessToken } from '../api/auth';
 import { useSocket } from '../contexts/SocketContext';
+import cacheManager, { CACHE_KEYS } from '../utils/cacheManager';
 import './MessagesPopup.css';
 
 const MessagesPopup = ({ isOpen, onClose }) => {
@@ -45,12 +46,21 @@ const MessagesPopup = ({ isOpen, onClose }) => {
 
     const fetchConversations = async () => {
         try {
+            const cachedConversations = cacheManager.get(CACHE_KEYS.CONVERSATIONS);
+            if (cachedConversations) {
+                setConversations(cachedConversations);
+                return;
+            }
+
             const token = getAccessToken();
             const response = await fetch(`${API_BASE_URL}/api/chat/conversations`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            setConversations(data.conversations || []);
+            const fetchedConversations = data.conversations || [];
+            
+            setConversations(fetchedConversations);
+            cacheManager.set(CACHE_KEYS.CONVERSATIONS, fetchedConversations);
         } catch (error) {
             console.error('Error fetching conversations:', error);
         }

@@ -18,6 +18,24 @@
       "school_batch": null
     },
     {
+      "enrollmentNo": "00000002",
+      "user_progile_img": null,
+      "nameAsPerXth": "Test",
+      "applicationNumber": "NSRU23A01013304",
+      "firstName": "Test ",
+      "lastName": "Test",
+      "ruEmailID": "test.test2024@nst.rishihood.edu.in",
+      "course": "B.Tech - Computer Science and Artificial Intelligence",
+      "batch": "2024",
+      "dateOfBirth": "13-08-2004",
+      "gender": "Male",
+      "bloodGroup": "O+",
+      "religion": null,
+      "socialCategory": "OBC",
+      "rufp_batch": null,
+      "school_batch": null
+    },
+    {
       "enrollmentNo": "0000001",
       "user_progile_img": null,
       "nameAsPerXth": "Saina (Goldfish)",
