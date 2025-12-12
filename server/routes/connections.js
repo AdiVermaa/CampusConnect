@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Connection from "../models/Connection.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.get("/", authenticate, async (req, res) => {
 
         const connections = await Connection.find({
             $or: [{ user_id: userId }, { connected_user_id: userId }],
+            status: 'accepted'
         })
             .populate("user_id", "name email profile_photo bio")
             .populate("connected_user_id", "name email profile_photo bio");
@@ -98,6 +100,14 @@ router.post("/:userId", authenticate, async (req, res) => {
         const connection = await Connection.create({
             user_id: currentUserId,
             connected_user_id: targetUserId,
+            status: 'pending'
+        });
+
+        await Notification.create({
+            recipient: targetUserId,
+            sender: currentUserId,
+            type: 'connection_request',
+            connectionId: connection._id
         });
 
         await connection.populate("connected_user_id", "name email profile_photo bio");
@@ -188,6 +198,7 @@ router.get("/user/:userId", authenticate, async (req, res) => {
 
         const connections = await Connection.find({
             $or: [{ user_id: targetUserId }, { connected_user_id: targetUserId }],
+            status: 'accepted'
         })
             .populate("user_id", "name email profile_photo bio department")
             .populate("connected_user_id", "name email profile_photo bio department");
@@ -216,6 +227,95 @@ router.get("/user/:userId", authenticate, async (req, res) => {
     } catch (error) {
         console.error("❌ Get user connections failed:", error?.message || error);
         res.status(500).json({ error: "Failed to fetch user connections" });
+    }
+});
+
+router.put("/:connectionId/accept", authenticate, async (req, res) => {
+    try {
+        const { connectionId } = req.params;
+        const userId = req.user.id;
+
+        const connection = await Connection.findById(connectionId);
+        if (!connection) {
+            return res.status(404).json({ error: "Connection not found" });
+        }
+
+        if (connection.connected_user_id.toString() !== userId) {
+            return res.status(403).json({ error: "Not authorized to accept this request" });
+        }
+
+        connection.status = "accepted";
+        await connection.save();
+
+        // Notify sender
+        await Notification.create({
+            recipient: connection.user_id,
+            sender: userId,
+            type: 'connection_accepted',
+            connectionId: connection._id
+        });
+
+        res.json({ message: "Connection accepted" });
+    } catch (error) {
+        console.error("❌ Accept connection failed:", error);
+        res.status(500).json({ error: "Failed to accept connection" });
+    }
+});
+
+router.put("/:connectionId/reject", authenticate, async (req, res) => {
+    try {
+        const { connectionId } = req.params;
+        const userId = req.user.id;
+
+        const connection = await Connection.findById(connectionId);
+        if (!connection) {
+            return res.status(404).json({ error: "Connection not found" });
+        }
+
+        if (connection.connected_user_id.toString() !== userId) {
+            return res.status(403).json({ error: "Not authorized to reject this request" });
+        }
+
+        // Delete connection
+        await Connection.findByIdAndDelete(connectionId);
+
+        // Notify sender
+        await Notification.create({
+            recipient: connection.user_id,
+            sender: userId,
+            type: 'connection_dismissed'
+        });
+
+        res.json({ message: "Connection rejected" });
+    } catch (error) {
+        console.error("❌ Reject connection failed:", error);
+        res.status(500).json({ error: "Failed to reject connection" });
+    }
+});
+
+router.get("/requests", authenticate, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const requests = await Connection.find({
+            connected_user_id: userId,
+            status: 'pending'
+        }).populate("user_id", "name email profile_photo");
+
+        res.json({
+            requests: requests.map(req => ({
+                id: req._id,
+                user: {
+                    id: req.user_id._id,
+                    name: req.user_id.name,
+                    email: req.user_id.email,
+                    profile_photo: req.user_id.profile_photo
+                },
+                createdAt: req.createdAt
+            }))
+        });
+    } catch (error) {
+        console.error("❌ Get requests failed:", error);
+        res.status(500).json({ error: "Failed to fetch requests" });
     }
 });
 

@@ -374,6 +374,14 @@ const MessagesPopup = ({ isOpen, onClose }) => {
                 )}
             </div>
         </div>
+        {toast.isOpen && (
+            <Toast
+                message={toast.message}
+                type={toast.type}
+                isOpen={true}
+                onClose={() => setToast(prev => ({ ...prev, isOpen: false }))}
+            />
+        )}
         </>
     );
 };

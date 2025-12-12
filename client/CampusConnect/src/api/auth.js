@@ -117,6 +117,7 @@ export const ChatAPI = createApiClient("/api/chat");
 export const ConnectionsAPI = createApiClient("/api/connections");
 export const EventsAPI = createApiClient("/api/events");
 export const AdminAPI = createApiClient("/api/admin");
+export const NotificationsAPI = createApiClient("/api/notifications");
 
 export const signup = (data) => API.post("/signup", data);
 export const login = (data) => API.post("/login", data);

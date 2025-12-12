@@ -11,6 +11,7 @@ import chatRoutes from "./routes/chat.js";
 import connectionRoutes from "./routes/connections.js";
 import eventRoutes from "./routes/events.js";
 import adminRoutes from "./routes/admin.js";
+import notificationRoutes from "./routes/notifications.js";
 import { connectDB } from "./db.js";
 
 dotenv.config();
@@ -128,6 +129,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/connections", connectionRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
   res.send("CampusConnect backend is running ✅");

@@ -97,14 +97,12 @@ export default function Profile() {
 
   const handleConnect = async () => {
     try {
-      const res = await API.post(`/connect/${userId}`);
-      const data = res.data;
-      if (res.status === 200) {
-        setMessage("Connected successfully!");
-        const profileRes = await API.get(`/profile/${userId}`);
-        setProfile(profileRes.data);
+      const res = await ConnectionsAPI.post(`/${userId}`);
+      if (res.status === 201) {
+        setMessage("Connection request sent!");
+        setProfile(prev => ({ ...prev, connection_status: 'pending_sent' }));
       } else {
-        setMessage(data.error || "Failed to connect");
+        setMessage(res.data.error || "Failed to connect");
       }
     } catch (err) {
       setMessage("Failed to connect");
@@ -317,13 +315,21 @@ export default function Profile() {
               ) : (
                 <button
                   onClick={handleConnect}
-                  disabled={profile.is_connected}
-                  className={`px-6 py-2 rounded-lg transition w-full sm:w-auto ${profile.is_connected
-                    ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-                    : "bg-red-600 text-white hover:bg-red-700"
+                  disabled={profile.connection_status !== 'none'}
+                  className={`px-6 py-2 rounded-lg transition w-full sm:w-auto ${
+                    profile.connection_status === 'connected'
+                      ? "bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                      : profile.connection_status === 'pending_sent'
+                      ? "bg-yellow-100 text-yellow-700 cursor-not-allowed"
+                      : profile.connection_status === 'pending_received'
+                      ? "bg-blue-100 text-blue-700 cursor-not-allowed"
+                      : "bg-red-600 text-white hover:bg-red-700"
                     }`}
                 >
-                  {profile.is_connected ? "Connected" : "Connect"}
+                  {profile.connection_status === 'connected' ? "Connected" 
+                   : profile.connection_status === 'pending_sent' ? "Request Sent"
+                   : profile.connection_status === 'pending_received' ? "Request Received"
+                   : "Connect"}
                 </button>
               )}
             </div>

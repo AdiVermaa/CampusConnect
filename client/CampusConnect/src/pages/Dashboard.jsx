@@ -2,10 +2,12 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import { API_BASE_URL } from "../config";
-import { API, PostsAPI, ChatAPI, getAccessToken, clearAccessToken } from "../api/auth";
+import { API, PostsAPI, ChatAPI, ConnectionsAPI, getAccessToken, clearAccessToken } from "../api/auth";
 import MessagesWidget from "../components/MessagesWidget";
 import MessagesPopup from "../components/MessagesPopup";
+import NotificationsPopup from "../components/NotificationsPopup";
 import ConfirmationModal from "../components/ConfirmationModal";
+import Toast from "../components/Toast";
 import cacheManager, { CACHE_KEYS } from "../utils/cacheManager";
 
 export default function Dashboard() {
@@ -39,8 +41,41 @@ export default function Dashboard() {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [deletePostId, setDeletePostId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false });
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type, isVisible: true });
+  };
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+        try {
+            const res = await API.get("/suggestions");
+            setSuggestions(res.data.suggestions || []);
+        } catch (error) {
+            console.error("Error fetching suggestions:", error);
+        } finally {
+            setSuggestionsLoading(false);
+        }
+    };
+    fetchSuggestions();
+  }, []);
+
+  const handleConnect = async (userId) => {
+    try {
+      await ConnectionsAPI.post(`/${userId}`);
+      setSuggestions(prev => prev.filter(u => u.id !== userId));
+      showToast("Connection request sent!", "success");
+    } catch (error) {
+      console.error("Connect failed:", error);
+      showToast("Failed to send request", "error");
+    }
+  };
 
   const sortConversations = (items) =>
     [...items].sort(
@@ -185,7 +220,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Failed to create post", error);
       const errorMessage = error.response?.data?.error || "Failed to create post";
-      alert(errorMessage);
+      showToast(errorMessage, "error");
     } finally {
       setIsPosting(false);
     }
@@ -213,7 +248,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Failed to delete post", error);
       const errorMessage = error.response?.data?.error || "Failed to delete post";
-      alert(errorMessage);
+      showToast(errorMessage, "error");
     }
   };
 
@@ -332,6 +367,17 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="relative">
+            <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition relative"
+            >
+                <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+            </button>
+            <NotificationsPopup isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+          </div>
 
           {user?.isAdmin && (
             <div className="flex items-center mr-2">
@@ -625,12 +671,38 @@ export default function Dashboard() {
           <MessagesWidget onOpenPopup={() => setShowMessagesPopup(true)} />
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 transition-colors duration-200">
-            <h3 className="text-lg font-semibold mb-3 dark:text-white">Campus News</h3>
-            <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-              <li>🎓 Upcoming Hackathon - 25th Nov</li>
-              <li>📢 Internship Drive by Google</li>
-              <li>🏆 Rajputana Clan wins Sports Fest!</li>
-            </ul>
+            <h3 className="text-lg font-semibold mb-3 dark:text-white">People you may know</h3>
+            {suggestionsLoading ? (
+                <div className="text-sm text-gray-500">Loading...</div>
+            ) : suggestions.length === 0 ? (
+                <div className="text-sm text-gray-500">No suggestions available</div>
+            ) : (
+                <div className="space-y-4">
+                    {suggestions.map(user => (
+                        <div key={user.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${user.id}`)}>
+                                {user.profile_photo ? (
+                                    <img src={user.profile_photo} alt={user.name} className="w-10 h-10 rounded-full object-cover" />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm">
+                                        {user.name.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{user.name}</p>
+                                    <p className="text-xs text-gray-500">{user.email.split('@')[0]}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => handleConnect(user.id)}
+                                className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-full hover:bg-red-200 transition font-medium"
+                            >
+                                Connect
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
           </div>
         </div>
       </div>
@@ -861,11 +933,24 @@ export default function Dashboard() {
           setShowDeleteConfirm(false);
           setDeletePostId(null);
         }}
-        onConfirm={confirmDeletePost}
+        onConfirm={handleDeletePost} // Changed from confirmDeletePost to handleDeletePost
         title="Delete Post"
         message="Are you sure you want to delete this post? This action cannot be undone."
         isDanger={true}
       />
+
+      {/* Toast Notification */}
+      {toast.isVisible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isOpen={true}
+          onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+        />
+      )}
     </div>
   );
 }
+
+
+

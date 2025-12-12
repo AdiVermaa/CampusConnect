@@ -472,9 +472,9 @@ router.get("/profile/:userId", async (req, res) => {
       year = extractYearFromEmail(user.email) || "Not available";
     }
 
-    const [connectionsCount, isConnected] = await Promise.all([
+    const [connectionsCount, connection] = await Promise.all([
       getConnectionsCount(user._id),
-      Connection.exists({
+      Connection.findOne({
         $or: [
           { user_id: decoded.id, connected_user_id: userId },
           { user_id: userId, connected_user_id: decoded.id },
@@ -482,12 +482,25 @@ router.get("/profile/:userId", async (req, res) => {
       }),
     ]);
 
+    let connectionStatus = 'none';
+    if (connection) {
+        if (connection.status === 'accepted') {
+            connectionStatus = 'connected';
+        } else if (connection.status === 'pending') {
+            if (connection.user_id.toString() === decoded.id) {
+                connectionStatus = 'pending_sent';
+            } else {
+                connectionStatus = 'pending_received';
+            }
+        }
+    }
+
     res.json({
       ...sanitizeUser(user),
       department: studentMeta.department,
       year,
       connections_count: connectionsCount,
-      is_connected: Boolean(isConnected),
+      connection_status: connectionStatus,
       is_own_profile: decoded.id === user._id.toString(),
     });
   } catch (error) {
@@ -667,6 +680,56 @@ router.get("/connections/list", async (req, res) => {
     res
       .status(status)
       .json({ error: status === 403 ? "Invalid token" : "Database error" });
+  }
+});
+
+router.get("/suggestions", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+  try {
+    ensureJwtSecrets();
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    // Get existing connections
+    const connections = await Connection.find({
+      $or: [{ user_id: userId }, { connected_user_id: userId }],
+    }).lean();
+
+    const excludeIds = new Set([userId]);
+    connections.forEach((conn) => {
+      excludeIds.add(conn.user_id.toString());
+      excludeIds.add(conn.connected_user_id.toString());
+    });
+
+    // Find users not in excludeIds
+    const excludeObjectIds = Array.from(excludeIds)
+        .filter(id => isValidObjectId(id))
+        .map(id => new Types.ObjectId(id));
+
+    console.log("Fetching suggestions, excluding count:", excludeObjectIds.length);
+    
+    const suggestions = await User.aggregate([
+      { $match: { _id: { $nin: excludeObjectIds } } },
+      { $sample: { size: 5 } },
+      { $project: { name: 1, email: 1, profile_photo: 1 } }
+    ]);
+    console.log("Suggestions found:", suggestions.length);
+
+    res.json({
+      suggestions: suggestions.map(user => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        profile_photo: user.profile_photo || null
+      }))
+    });
+
+  } catch (error) {
+    console.error("❌ Suggestions failed:", error?.message || error);
+    res.status(500).json({ error: "Failed to fetch suggestions" });
   }
 });
 
