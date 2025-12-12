@@ -23,6 +23,14 @@ const messageSchema = new mongoose.Schema(
       ref: "Post",
       default: null,
     },
+    attachment: {
+      type: String,
+      default: null,
+    },
+    attachmentType: {
+      type: String,
+      default: null,
+    },
     readBy: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -149,11 +149,11 @@ router.post(
   authenticate,
   async (req, res) => {
     const { conversationId } = req.params;
-    const { text, postId } = req.body || {};
+    const { text, postId, attachment, attachmentType } = req.body || {};
 
-    if (!text?.trim() && !postId) {
+    if (!text?.trim() && !postId && !attachment) {
       return res.status(400).json({
-        error: "Message text or post share is required",
+        error: "Message text, attachment, or post share is required",
       });
     }
 
@@ -191,6 +191,8 @@ router.post(
       sender: req.user.id,
       text: text?.trim() || "",
       post: post ? post._id : undefined,
+      attachment,
+      attachmentType,
     });
 
     const message = await populateMessage(Message.findById(createdMessage._id));

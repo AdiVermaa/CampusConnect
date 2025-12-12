@@ -27,6 +27,8 @@ export const formatMessage = (messageDoc) => ({
   createdAt: messageDoc.createdAt,
   sender: formatUser(messageDoc.sender),
   post: formatPostSummary(messageDoc.post),
+  attachment: messageDoc.attachment || null,
+  attachmentType: messageDoc.attachmentType || null,
 });
 
 const resolveConversationName = (conversation, currentUserId) => {
