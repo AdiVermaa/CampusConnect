@@ -12,6 +12,7 @@ import {
   updateConversationLastMessage,
   emitMessageEvent,
 } from "../utils/chatHelpers.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 const router = express.Router();
 
@@ -140,6 +141,15 @@ router.post(
 
     await post.populate("author", "name email profile_photo");
 
+    await logActivity({
+      userId: req.user.id,
+      action: "post_create",
+      targetType: "Post",
+      targetId: post._id,
+      details: { content: post.content },
+      req: req,
+    });
+
     res.status(201).json({
       post: formatPost(post, req.user.id),
     });
@@ -197,6 +207,15 @@ router.post(
 
     await post.save();
     await post.populate("comments.user", "name email profile_photo");
+
+    await logActivity({
+      userId: req.user.id,
+      action: "comment_create",
+      targetType: "Post",
+      targetId: post._id,
+      details: { content: text.trim(), postId: post._id },
+      req: req,
+    });
 
     res.json({ post: formatPost(post, req.user.id) });
   })
@@ -316,6 +335,15 @@ router.delete(
     }
 
     await Post.findByIdAndDelete(req.params.postId);
+
+    await logActivity({
+      userId: req.user.id,
+      action: "post_delete",
+      targetType: "Post",
+      targetId: req.params.postId,
+      details: { content: post.content },
+      req: req,
+    });
 
     res.json({ message: "Post deleted successfully" });
   })

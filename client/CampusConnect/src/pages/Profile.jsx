@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import { API, ConnectionsAPI, getAccessToken, clearAccessToken } from "../api/auth";
+
 import cacheManager, { CACHE_KEYS } from "../utils/cacheManager";
+import ConfirmationModal from "../components/ConfirmationModal";
+import Toast from "../components/Toast";
 
 export default function Profile() {
   const { userId } = useParams();
@@ -10,7 +13,7 @@ export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState("");
+
   const [formData, setFormData] = useState({
     name: "",
     portfolio_link: "",
@@ -24,6 +27,25 @@ export default function Profile() {
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [connectionsList, setConnectionsList] = useState([]);
   const [loadingConnections, setLoadingConnections] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: null,
+    targetId: null,
+    targetName: null,
+    title: "",
+    message: "",
+    isDanger: false,
+    confirmText: "Confirm"
+  });
+  const [toast, setToast] = useState({
+    isOpen: false,
+    message: "",
+    type: "success"
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({ isOpen: true, message, type });
+  };
 
   const handleViewConnections = async () => {
     setShowConnectionsModal(true);
@@ -36,6 +58,73 @@ export default function Profile() {
     } finally {
       setLoadingConnections(false);
     }
+  };
+
+  const handleRemoveConnection = (targetUserId, userName) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'remove_connection',
+      targetId: targetUserId,
+      targetName: userName,
+      title: "Remove Connection",
+      message: `Are you sure you want to remove ${userName} from your connections?`,
+      isDanger: true,
+      confirmText: "Remove"
+    });
+  };
+
+  const handleDeleteAccount = () => {
+    setModalConfig({
+      isOpen: true,
+      type: 'delete_account',
+      title: "Delete Account",
+      message: "Are you sure you want to permanently delete your account? This action cannot be undone.",
+      isDanger: true,
+      confirmText: "Delete Account"
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    const { type, targetId, targetName } = modalConfig;
+
+    if (type === 'remove_connection') {
+      try {
+        await ConnectionsAPI.delete(`/${targetId}`);
+        setConnectionsList(prev => prev.filter(conn => conn.user.id !== targetId));
+        setProfile(prev => ({
+          ...prev,
+          connections_count: Math.max(0, (prev.connections_count || 0) - 1)
+        }));
+        
+        if (profile.is_own_profile) {
+            const cacheKey = CACHE_KEYS.USER_DATA(userId);
+            const cachedData = cacheManager.get(cacheKey);
+            if (cachedData) {
+                cacheManager.set(cacheKey, {
+                    ...cachedData,
+                    connections_count: Math.max(0, (cachedData.connections_count || 0) - 1)
+                });
+            }
+        }
+        showToast(`Removed ${targetName} from connections`);
+      } catch (err) {
+        console.error("Failed to remove connection:", err);
+        showToast("Failed to remove connection", "error");
+      }
+    } else if (type === 'delete_account') {
+      try {
+        const res = await API.delete("/delete-account");
+        if (res.status === 200) {
+          clearAccessToken();
+          navigate("/login", { replace: true });
+        } else if (res.data?.error) {
+          showToast(res.data.error || "Failed to delete account", "error");
+        }
+      } catch (err) {
+        showToast("Failed to delete account", "error");
+      }
+    }
+    setModalConfig({ ...modalConfig, isOpen: false });
   };
 
   useEffect(() => {
@@ -99,13 +188,13 @@ export default function Profile() {
     try {
       const res = await ConnectionsAPI.post(`/${userId}`);
       if (res.status === 201) {
-        setMessage("Connection request sent!");
+        showToast("Connection request sent!");
         setProfile(prev => ({ ...prev, connection_status: 'pending_sent' }));
       } else {
-        setMessage(res.data.error || "Failed to connect");
+        showToast(res.data.error || "Failed to connect", "error");
       }
     } catch (err) {
-      setMessage("Failed to connect");
+      showToast("Failed to connect", "error");
     }
   };
 
@@ -113,11 +202,11 @@ export default function Profile() {
     const file = e.target.files[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
-        setMessage("Please select an image file");
+        showToast("Please select an image file", "error");
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        setMessage("Image size should be less than 5MB");
+        showToast("Image size should be less than 5MB", "error");
         return;
       }
 
@@ -164,7 +253,7 @@ export default function Profile() {
       const res = await API.put("/profile", formData);
       const data = res.data;
       if (res.status === 200) {
-        setMessage("Profile updated successfully!");
+        showToast("Profile updated successfully!");
         setIsEditing(false);
         const profileRes = await API.get(`/profile/${userId}`);
         const profileData = profileRes.data;
@@ -176,34 +265,14 @@ export default function Profile() {
             cacheManager.set(CACHE_KEYS.USER_PROFILE, profileData);
         }
       } else {
-        setMessage(data.error || "Failed to update profile");
+        showToast(data.error || "Failed to update profile", "error");
       }
     } catch (err) {
-      setMessage("Failed to update profile");
+      showToast("Failed to update profile", "error");
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to permanently delete your account? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
 
-    try {
-      const res = await API.delete("/delete-account");
-      if (res.status === 200) {
-        clearAccessToken();
-        navigate("/login", { replace: true });
-      } else if (res.data?.error) {
-        setMessage(res.data.error || "Failed to delete account");
-      }
-    } catch (err) {
-      setMessage("Failed to delete account");
-    }
-  };
 
   if (isLoading) {
     return (
@@ -336,11 +405,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {message && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            {message}
-          </div>
-        )}
+
 
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6 transition-colors duration-200">
           <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">About</h3>
@@ -529,25 +594,47 @@ export default function Profile() {
               ) : (
                 <div className="space-y-4">
                   {connectionsList.map((conn) => (
-                    <div key={conn.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition cursor-pointer" onClick={() => {
-                      navigate(`/profile/${conn.user.id}`);
-                      setShowConnectionsModal(false);
-                    }}>
-                      {conn.user.profile_photo ? (
-                        <img
-                          src={conn.user.profile_photo}
-                          alt={conn.user.name}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-red-600 dark:bg-red-400 flex items-center justify-center text-white text-sm font-bold">
-                          {conn.user.name?.charAt(0).toUpperCase() || "?"}
+                    <div key={conn.id} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition group">
+                      <div 
+                        className="flex items-center gap-3 cursor-pointer flex-1"
+                        onClick={() => {
+                          navigate(`/profile/${conn.user.id}`);
+                          setShowConnectionsModal(false);
+                        }}
+                      >
+                        {conn.user.profile_photo ? (
+                          <img
+                            src={conn.user.profile_photo}
+                            alt={conn.user.name}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-red-600 dark:bg-red-400 flex items-center justify-center text-white text-sm font-bold">
+                            {conn.user.name?.charAt(0).toUpperCase() || "?"}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="font-medium text-gray-800 dark:text-white">{conn.user.name}</h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{conn.user.department || "Student"}</p>
                         </div>
-                      )}
-                      <div>
-                        <h4 className="font-medium text-gray-800 dark:text-white">{conn.user.name}</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{conn.user.department || "Student"}</p>
                       </div>
+                      
+                      {profile.is_own_profile && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveConnection(conn.user.id, conn.user.name);
+                          }}
+                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Remove connection"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -556,6 +643,24 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={handleConfirmAction}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        isDanger={modalConfig.isDanger}
+        confirmText={modalConfig.confirmText}
+      />
+
+      <Toast
+        isOpen={toast.isOpen}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
     </div>
   );
 }

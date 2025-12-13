@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import { setAccessToken, setRefreshToken } from "../api/auth";
+import cacheManager from "../utils/cacheManager";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -22,7 +23,7 @@ export default function Login() {
       const data = await res.json();
 
       if (res.ok) {
-
+        cacheManager.clear();
         setAccessToken(data.accessToken);
         setRefreshToken(data.refreshToken);
 

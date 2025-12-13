@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Connection from "../models/Connection.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 const router = express.Router();
 
@@ -110,6 +111,19 @@ router.post("/:userId", authenticate, async (req, res) => {
             connectionId: connection._id
         });
 
+        await logActivity({
+            userId: currentUserId,
+            action: "connection_request",
+            targetType: "User",
+            targetId: targetUserId,
+            details: { 
+                connectionId: connection._id,
+                recipientName: targetUser.name,
+                recipientEmail: targetUser.email
+            },
+            req: req,
+        });
+
         await connection.populate("connected_user_id", "name email profile_photo bio");
 
         res.status(201).json({
@@ -154,6 +168,15 @@ router.delete("/:userId", authenticate, async (req, res) => {
         if (!result) {
             return res.status(404).json({ error: "Connection not found" });
         }
+
+        await logActivity({
+            userId: currentUserId,
+            action: "connection_delete",
+            targetType: "User",
+            targetId: targetUserId,
+            details: { connectionId: result._id },
+            req: req,
+        });
 
         res.json({ message: "Connection removed successfully" });
     } catch (error) {
@@ -247,12 +270,36 @@ router.put("/:connectionId/accept", authenticate, async (req, res) => {
         connection.status = "accepted";
         await connection.save();
 
+        // Delete the original connection request notification
+        await Notification.findOneAndDelete({
+            recipient: userId,
+            sender: connection.user_id,
+            type: 'connection_request',
+            connectionId: connection._id
+        });
+
         // Notify sender
         await Notification.create({
             recipient: connection.user_id,
             sender: userId,
             type: 'connection_accepted',
             connectionId: connection._id
+        });
+
+        // Populate to get requester details for log
+        await connection.populate("user_id", "name email");
+
+        await logActivity({
+            userId: userId,
+            action: "connection_accept",
+            targetType: "User",
+            targetId: connection.user_id._id,
+            details: { 
+                connectionId: connection._id,
+                requesterName: connection.user_id.name,
+                requesterEmail: connection.user_id.email
+            },
+            req: req,
         });
 
         res.json({ message: "Connection accepted" });
@@ -278,6 +325,14 @@ router.put("/:connectionId/reject", authenticate, async (req, res) => {
 
         // Delete connection
         await Connection.findByIdAndDelete(connectionId);
+
+        // Delete the original connection request notification
+        await Notification.findOneAndDelete({
+            recipient: userId,
+            sender: connection.user_id,
+            type: 'connection_request',
+            connectionId: connection._id
+        });
 
         // Notify sender
         await Notification.create({

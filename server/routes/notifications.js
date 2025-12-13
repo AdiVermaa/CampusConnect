@@ -66,4 +66,15 @@ router.put("/:id/read", authenticate, async (req, res) => {
     }
 });
 
+router.put("/mark-all-read", authenticate, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        await Notification.updateMany({ recipient: userId, read: false }, { read: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Mark all read failed:", error);
+        res.status(500).json({ error: "Failed to mark notifications as read" });
+    }
+});
+
 export default router;

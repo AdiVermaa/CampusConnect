@@ -30,6 +30,8 @@ const activityLogSchema = new mongoose.Schema(
                 "user_unsuspend",
                 "user_delete",
                 "role_change",
+                "connection_request",
+                "connection_accept",
             ],
         },
         targetType: {

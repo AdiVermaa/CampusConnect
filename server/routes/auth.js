@@ -51,6 +51,12 @@ function extractYearFromEmail(email) {
     return fourDigitMatch[1];
   }
 
+  // Check for 5+ digit number where first 2 digits are the year (e.g. 25048 -> 2025)
+  const longNumberMatch = email.match(/([2-9]\d)\d{3,}/);
+  if (longNumberMatch) {
+      return `20${longNumberMatch[1]}`;
+  }
+
   const twoDigitMatch = email.match(/(\d{2})(?![0-9])/);
   if (twoDigitMatch) {
     const twoDigit = parseInt(twoDigitMatch[1], 10);
@@ -85,6 +91,7 @@ const getConnectionsCount = async (userId) => {
       {
         $match: {
           $or: [{ user_id: objectId }, { connected_user_id: objectId }],
+          status: 'accepted'
         },
       },
       {
@@ -321,6 +328,13 @@ router.post("/logout", async (req, res) => {
       await User.findByIdAndUpdate(decoded.id, {
         $unset: { refresh_token: "" },
       }).exec();
+
+      await logActivity({
+        userId: decoded.id,
+        action: "logout",
+        details: {},
+        req,
+      }).catch(() => { });
     } catch (error) {
       console.warn("⚠️ Logout token cleanup skipped:", error?.message || error);
     }
@@ -545,6 +559,16 @@ router.put("/profile", async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     await User.findByIdAndUpdate(decoded.id, payload).exec();
+
+    await logActivity({
+      userId: decoded.id,
+      action: "profile_update",
+      timestamp: new Date(),
+      details: {
+        updatedFields: Object.keys(payload)
+      },
+      req,
+    }).catch(() => { });
 
     res.json({ message: "Profile updated successfully" });
   } catch (error) {

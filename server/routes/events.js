@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Event from "../models/Event.js";
 import User from "../models/User.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 const router = express.Router();
 
@@ -171,6 +172,15 @@ router.post("/", authenticate, async (req, res) => {
 
         await event.populate("organizer", "name email profile_photo");
 
+        await logActivity({
+            userId: req.user.id,
+            action: "event_create",
+            targetType: "Event",
+            targetId: event._id,
+            details: { title: event.title },
+            req: req,
+        });
+
         res.status(201).json({
             message: "Event created successfully",
             event: formatEvent(event, req.user.id),
@@ -233,6 +243,15 @@ router.put("/:eventId", authenticate, async (req, res) => {
         await event.save();
         await event.populate("organizer", "name email profile_photo");
 
+        await logActivity({
+            userId: req.user.id,
+            action: "event_update",
+            targetType: "Event",
+            targetId: event._id,
+            details: { title: event.title },
+            req: req,
+        });
+
         res.json({
             message: "Event updated successfully",
             event: formatEvent(event, req.user.id),
@@ -262,6 +281,15 @@ router.delete("/:eventId", authenticate, async (req, res) => {
         }
 
         await Event.findByIdAndDelete(eventId);
+
+        await logActivity({
+            userId: req.user.id,
+            action: "event_delete",
+            targetType: "Event",
+            targetId: eventId,
+            details: { title: event.title },
+            req: req,
+        });
 
         res.json({ message: "Event deleted successfully" });
     } catch (error) {

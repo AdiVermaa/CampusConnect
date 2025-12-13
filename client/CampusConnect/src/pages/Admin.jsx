@@ -534,7 +534,7 @@ export default function Admin() {
                                                         <ActionBadge action={log.action} />
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                                                        {JSON.stringify(log.details)}
+                                                        {formatLogDetails(log)}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                         {log.ipAddress || "N/A"}
@@ -811,6 +811,15 @@ function ActionBadge({ action }) {
         user_unsuspend: { label: "User Unsuspended", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
         user_delete: { label: "User Deleted", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
         role_change: { label: "Role Changed", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
+        connection_request: { label: "Connection Request", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" },
+        connection_accept: { label: "Connection Accepted", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+        connection_delete: { label: "Connection Removed", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+        event_create: { label: "Event Created", color: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200" },
+        event_update: { label: "Event Updated", color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200" },
+        event_delete: { label: "Event Deleted", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
+        comment_create: { label: "Comment Added", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+        signup: { label: "User Signed Up", color: "bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+        logout: { label: "User Logged Out", color: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400" },
     };
 
     const badge = badges[action] || { label: action, color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200" };
@@ -820,4 +829,49 @@ function ActionBadge({ action }) {
             {badge.label}
         </span>
     );
+}
+
+function formatLogDetails(log) {
+    const { action, details } = log;
+    if (!details) return "No details";
+
+    switch (action) {
+        case "login_success":
+            return `Logged in with ${details.email}`;
+        case "login_failed":
+            return `Failed login (${details.email}): ${details.reason}`;
+        case "connection_request":
+            if (details.recipientName) return `Sent request to ${details.recipientName}`;
+            return `Sent request to user ${details.recipientEmail || "ID: " + log.targetId}`;
+        case "connection_accept":
+            return `Accepted request from ${details.requesterName || details.requesterEmail}`;
+        case "connection_delete":
+            return `Removed connection`;
+        case "post_create":
+             return details.content ? `Posted: "${details.content.substring(0, 30)}${details.content.length > 30 ? '...' : ''}"` : "Created a new post";
+        case "post_delete":
+             return details.content ? `Deleted post: "${details.content.substring(0, 30)}..."` : "Deleted a post";
+        case "comment_create":
+             return details.content ? `Commented: "${details.content.substring(0, 30)}..."` : "Added a comment";
+        case "event_create":
+             return details.title ? `Created event: ${details.title}` : "Created an event";
+        case "event_update":
+             return details.title ? `Updated event: ${details.title}` : "Updated an event";
+        case "event_delete":
+             return details.title ? `Deleted event: ${details.title}` : "Deleted an event";
+        case "user_suspend":
+             return `Suspended user: ${details.userName || details.userEmail}`;
+        case "user_unsuspend":
+             return `Unsuspended user: ${details.userName || details.userEmail}`;
+        case "user_delete":
+             return `Deleted user: ${details.userName || details.userEmail}`;
+        case "role_change":
+             return `Changed role for user`;
+        case "signup":
+             return `New user signed up: ${details.email}`;
+        case "logout":
+             return `User logged out`;
+        default:
+            return JSON.stringify(details);
+    }
 }
