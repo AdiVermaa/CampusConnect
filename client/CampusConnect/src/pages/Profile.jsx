@@ -397,7 +397,7 @@ export default function Profile() {
                 >
                   {profile.connection_status === 'connected' ? "Connected" 
                    : profile.connection_status === 'pending_sent' ? "Request Sent"
-                   : profile.connection_status === 'pending_received' ? "Request Received"
+                   : profile.connection_status === 'pending_received' ? "Request Pending"
                    : "Connect"}
                 </button>
               )}
